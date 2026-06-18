@@ -16,7 +16,6 @@
     --text:    #fff;
     --accent:  #00a0e0;
     --danger:  #c00000;
-    --bar-h:   112px;
     --safe-b:  env(safe-area-inset-bottom, 0px);
   }
   html, body {
@@ -26,28 +25,38 @@
     color: var(--text);
     user-select: none; -webkit-user-select: none;
   }
+
+  /* Bar height computed in JS and set as --bar-h on <html> */
   #map {
-    position: fixed; inset: 0;
-    bottom: calc(var(--bar-h) + var(--safe-b));
+    position: fixed; top: 0; left: 0; right: 0;
+    bottom: calc(var(--bar-h, 120px) + var(--safe-b));
   }
-  /* SVG fog — fixed, sits over the map, ignored by pointer events */
   #fog-svg {
-    position: fixed; inset: 0;
-    bottom: calc(var(--bar-h) + var(--safe-b));
-    pointer-events: none;
+    position: fixed; top: 0; left: 0; right: 0;
+    bottom: calc(var(--bar-h, 120px) + var(--safe-b));
+    pointer-events: none; /* ALWAYS none — clicks handled by #select-overlay */
     z-index: 450;
   }
-  /* In select mode, the SVG accepts pointer events so hexes are clickable */
-  #fog-svg.select-mode { pointer-events: all; }
+  /* Transparent overlay for select-mode tap detection.
+     pointer-events:none normally; set to all in select mode.
+     Passes pan/zoom through by only stopping propagation on hex taps. */
+  #select-overlay {
+    position: fixed; top: 0; left: 0; right: 0;
+    bottom: calc(var(--bar-h, 120px) + var(--safe-b));
+    pointer-events: none;
+    z-index: 460;
+    touch-action: none; /* prevent default scroll so Leaflet gets touch events */
+  }
+  #select-overlay.active { pointer-events: all; }
 
   /* ── Bottom bar ── */
   #bar {
     position: fixed; left: 0; right: 0; bottom: 0;
-    height: calc(var(--bar-h) + var(--safe-b));
     background: var(--surface);
     border-top: 1px solid var(--muted);
     display: flex; flex-direction: column; align-items: center;
-    padding: 12px 14px calc(12px + var(--safe-b));
+    padding: 12px 14px 0;
+    padding-bottom: max(18px, var(--safe-b));
     gap: 10px;
     z-index: 500;
   }
@@ -77,7 +86,8 @@
     position: absolute; left: 0; right: 0; bottom: 0;
     background: var(--surface);
     border-radius: 22px 22px 0 0;
-    padding: 14px 16px calc(16px + var(--safe-b));
+    padding: 14px 16px 0;
+    padding-bottom: max(20px, var(--safe-b));
     display: flex; flex-direction: column; gap: 10px;
   }
   #menu-handle {
@@ -124,9 +134,8 @@
 <body>
 
 <div id="map"></div>
-
-<!-- Fog SVG: fixed over the map, re-drawn each frame in JS using container coords -->
-<svg id="fog-svg" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%"></svg>
+<svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="select-overlay"></div>
 
 <div id="bar">
   <div id="status-line">0 hexagons</div>
@@ -165,41 +174,63 @@
 
 /* ═══════════════════════════════════════════════════
    HEX MATH
-   Pointy-top hexagons, 100 m flat-to-flat.
-   Circumradius R = 100/√3 m.
+   Pointy-top hexagons, 100 m corner-to-corner (diameter).
+   So circumradius R = 50 m.
 
-   We work in a LOCAL Cartesian metre plane.
-   The key insight: we must use ONE fixed cosine correction
-   so that ll2key and hexCornerLatLngs are exact inverses.
+   The hex grid lives in a LOCAL metre plane.  For consistent
+   hit-testing we use a FIXED cosine correction based on each
+   hex centre's latitude — so ll2key and hexCornerLatLngs are
+   exact inverses of each other.
 
-   Strategy: convert lat/lng to metres using the EQUATOR as
-   reference (lng * MPD for x, lat * MPD for y). This is the
-   standard equirectangular projection. Hexes near the equator
-   are geometrically correct; elsewhere they are slightly
-   squished east-west but the grid is still perfectly
-   consistent — ll2key(hexCentre(q,r)) always returns (q,r).
-
-   Axial (q,r) ↔ equirectangular metres:
-     mx = R√3·(q + r/2)       [east]
-     my = R·1.5·r              [north]
+   Axial (q,r) ↔ metres:
+     mx = R√3 · (q + r/2)    [east, in metres]
+     my = R · 3/2 · r        [north, in metres]
    Inverse:
-     r  = my·2/(3R)
-     q  = mx/(R√3) − r/2
+     r  = my · 2 / (3R)
+     q  = mx / (R√3) − r/2
 
-   For display we use Leaflet's own projection (latLngToContainerPoint)
-   so the hexes appear correctly shaped on the Mercator map.
+   Converting metres ↔ LatLng:
+     Δlat = Δy_m / MPD          (MPD = 111320 m/°)
+     Δlng = Δx_m / (MPD · cos(lat_ref))
+
+   We evaluate cos(lat_ref) at the hex centre's latitude so that
+   the corner offsets are geometrically correct in metres, and the
+   same cosine is applied in reverse when classifying a point.
 ═══════════════════════════════════════════════════ */
-const R   = 100 / Math.sqrt(3); // circumradius metres ≈ 57.735
-const MPD = 111320;             // metres per degree latitude
 
-// LatLng → equirectangular metres (consistent reference: equator)
+const R   = 50;      // circumradius = 50 m (corner-to-corner diameter = 100 m)
+const MPD = 111320;  // metres per degree latitude (constant)
+
+// metres per degree longitude at a given latitude
+function mpdLon(lat) { return MPD * Math.cos(lat * Math.PI / 180); }
+
+// Convert LatLng to local metres relative to a reference lat
+// (reference lat used for cosine correction — must be same for forward/inverse)
+function ll2mRef(lat, lng, refLat) {
+  return {
+    mx: (lng - 0) * mpdLon(refLat),   // x = longitude offset from 0° * cos(refLat)
+    my: lat * MPD,                      // y = latitude in metres from equator
+  };
+}
+// Shorthand for origin (refLat=0, i.e. equator) — used for the grid definition
 function ll2m(lat, lng) {
-  return { mx: lng * MPD, my: lat * MPD };
+  // We use lat itself as the reference, but we need to linearise consistently.
+  // Solution: the hex CENTRE defines refLat; we compute refLat from my=lat*MPD
+  // then iterate once. But for axial→key, we do it directly:
+  // Use my=lat*MPD, then find r, find hex centre lat, use that for cosine.
+  const my = lat * MPD;
+  const fr_approx = my * 2 / (3 * R);
+  const r_approx  = Math.round(fr_approx);
+  // Hex centre latitude for this approximate r
+  const centreLat = (R * 1.5 * r_approx) / MPD;
+  const cosRef    = Math.cos(centreLat * Math.PI / 180);
+  const mx        = lng * MPD * cosRef;
+  return { mx, my };
 }
 
 // Metres → fractional axial
 function m2fax(mx, my) {
-  const fr = (my * 2) / (3 * R);
+  const fr = my * 2 / (3 * R);
   const fq = mx / (Math.sqrt(3) * R) - fr / 2;
   return { fq, fr };
 }
@@ -208,13 +239,13 @@ function m2fax(mx, my) {
 function axRound(fq, fr) {
   const fs = -fq - fr;
   let q = Math.round(fq), r = Math.round(fr), s = Math.round(fs);
-  const dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s - fs);
+  const dq = Math.abs(q-fq), dr = Math.abs(r-fr), ds = Math.abs(s-fs);
   if      (dq > dr && dq > ds) q = -r - s;
   else if (dr > ds)            r = -q - s;
   return { q, r };
 }
 
-// LatLng → "q,r" hex key
+// LatLng → hex key
 function ll2key(lat, lng) {
   const { mx, my } = ll2m(lat, lng);
   const { fq, fr } = m2fax(mx, my);
@@ -222,33 +253,37 @@ function ll2key(lat, lng) {
   return `${q},${r}`;
 }
 
-// Axial → centre LatLng (exact inverse of ll2key)
+// Axial → centre LatLng
 function ax2ll(q, r) {
-  const mx  = R * Math.sqrt(3) * (q + r / 2);
+  // Centre in metres (raw, before cosine)
   const my  = R * 1.5 * r;
-  return { lat: my / MPD, lng: mx / MPD };
+  const lat = my / MPD;
+  // mx uses cosine at the centre's own latitude — exact inverse of ll2m
+  const cosRef = Math.cos(lat * Math.PI / 180);
+  const mx_raw = R * Math.sqrt(3) * (q + r / 2); // metres in grid space
+  const lng    = cosRef === 0 ? 0 : mx_raw / (MPD * cosRef);
+  return { lat, lng };
 }
 
-// Axial → array of 6 {lat,lng} corners (pointy-top)
-// Corner angles for pointy-top: 90°, 30°, -30°, -90°, -150°, 150°
-// i.e. 60*i + 90  (or equivalently 60*i - 30 starting from -30°… but
-// we want the top point at 90°, so use 60*i + 90).
-// In equirectangular: dx=cos(ang)/MPD degrees lng, dy=sin(ang)/MPD degrees lat.
-// The display projection (Mercator) handles the visual shape correctly.
+// Axial → 6 corner LatLngs (pointy-top: points at N and S)
 function hexCornerLatLngs(q, r) {
   const { lat: cLat, lng: cLng } = ax2ll(q, r);
+  const cosRef = Math.cos(cLat * Math.PI / 180) || 1e-10;
   const pts = [];
   for (let i = 0; i < 6; i++) {
-    const ang = Math.PI / 180 * (60 * i + 90); // pointy-top, first corner at top
+    // Pointy-top: first corner at 90° (top/north), then every 60°
+    const ang = Math.PI / 2 - i * (Math.PI / 3); // 90°, 30°, -30°, -90°, -150°, 150°
+    const dx_m = R * Math.cos(ang); // east in metres
+    const dy_m = R * Math.sin(ang); // north in metres
     pts.push({
-      lat: cLat + R * Math.sin(ang) / MPD,
-      lng: cLng + R * Math.cos(ang) / MPD,
+      lat: cLat + dy_m / MPD,
+      lng: cLng + dx_m / (MPD * cosRef),
     });
   }
   return pts;
 }
 
-// 6 corners → SVG "M x,y L x,y … Z" using container pixel coords
+// 6 corners → SVG path string using container pixel coords
 function cornersToPx(corners) {
   return 'M ' + corners.map(({ lat, lng }) => {
     const p = map.latLngToContainerPoint(L.latLng(lat, lng));
@@ -256,13 +291,13 @@ function cornersToPx(corners) {
   }).join(' L ') + ' Z';
 }
 
-// Axial neighbours (pointy-top, standard axial directions)
+// Axial neighbours (pointy-top standard axial)
 function nbrs(q, r) {
   return [[q+1,r],[q-1,r],[q,r+1],[q,r-1],[q+1,r-1],[q-1,r+1]];
 }
 
 function hk(q, r) { return `${q},${r}`; }
-function parseKey(k) { const [q, r] = k.split(',').map(Number); return { q, r }; }
+function parseKey(k) { const [q,r]=k.split(',').map(Number); return {q,r}; }
 
 /* ═══════════════════════════════════════════════════
    MAP
@@ -274,6 +309,12 @@ const map = L.map('map', {
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors', maxZoom: 19,
 }).addTo(map);
+
+// Measure bar height and expose as CSS var so map/svg/overlay all agree
+function syncBarHeight() {
+  const h = document.getElementById('bar').getBoundingClientRect().height;
+  document.documentElement.style.setProperty('--bar-h', h + 'px');
+}
 
 /* ═══════════════════════════════════════════════════
    STATE
@@ -290,60 +331,50 @@ let hasSnapped = false;
    STORAGE
 ═══════════════════════════════════════════════════ */
 const SK = 'hexploration_v1';
-function store() { try { localStorage.setItem(SK, JSON.stringify([...revealed])); } catch(e) {} }
-function load()  { try { const d = localStorage.getItem(SK); if (d) revealed = new Set(JSON.parse(d)); } catch(e) {} }
+function store() { try { localStorage.setItem(SK, JSON.stringify([...revealed])); } catch(e){} }
+function load()  { try { const d=localStorage.getItem(SK); if(d) revealed=new Set(JSON.parse(d)); } catch(e){} }
 load();
 
 /* ═══════════════════════════════════════════════════
    FOG SVG RENDERER
 
-   The SVG is position:fixed, same size as the map area,
-   so latLngToContainerPoint() gives correct pixel coords
-   directly — no pane transform interference.
+   Two-pass evenodd technique:
+     Pass 1: fill world at borderOp=0.5, punch out revealed hexes
+     Pass 2: fill world at extra=(fogOp-borderOp), punch out revealed+borders
+   Result: revealed=0, border=0.5, other=fogOp (0.95 normal / 0.5 select)
 
-   We draw two stacked evenodd paths:
-     Pass 1 — world rect minus revealed            → borderOp (0.5)
-     Pass 2 — world rect minus revealed minus border → extra (fogOp − borderOp)
-   Net opacity:  revealed=0  border=0.5  other=fogOp ✓
-
-   On every map move/zoom we simply redraw all paths
-   (just string construction + setAttribute, no DOM create/delete
-   except once when the data changes).
+   SVG is pointer-events:none always.
+   Select-mode taps handled by #select-overlay (a separate div).
 ═══════════════════════════════════════════════════ */
-const fogSvg   = document.getElementById('fog-svg');
-const NS       = 'http://www.w3.org/2000/svg';
+const fogSvg = document.getElementById('fog-svg');
+const selOv  = document.getElementById('select-overlay');
+const NS     = 'http://www.w3.org/2000/svg';
 
-// Persistent SVG path elements — created once, updated each frame
-let svgPath1   = null; // borderOp layer
-let svgPath2   = null; // extra layer
-let svgOutlines = [];  // stroke outlines for revealed+border hexes
-
-// Cache of border set (recomputed only when revealed changes)
+let svgPath1    = null;
+let svgPath2    = null;
+let svgOutlines = [];
 let borderCache = null;
 
 function getBorders() {
   if (borderCache) return borderCache;
   borderCache = new Set();
   for (const k of revealed) {
-    const { q, r } = parseKey(k);
-    for (const [nq, nr] of nbrs(q, r)) {
-      const nk = hk(nq, nr);
+    const {q,r} = parseKey(k);
+    for (const [nq,nr] of nbrs(q,r)) {
+      const nk = hk(nq,nr);
       if (!revealed.has(nk)) borderCache.add(nk);
     }
   }
   return borderCache;
 }
-
 function invalidateBorders() { borderCache = null; }
 
-// Build the giant "world box + hex holes" evenodd path string
-// holeKeys = Set of keys to punch out as holes
 const WORLD = 'M -99999,-99999 L 99999,-99999 L 99999,99999 L -99999,99999 Z ';
 function buildEvenOddPath(holeKeys) {
   let d = WORLD;
   for (const k of holeKeys) {
-    const { q, r } = parseKey(k);
-    d += cornersToPx(hexCornerLatLngs(q, r)) + ' ';
+    const {q,r} = parseKey(k);
+    d += cornersToPx(hexCornerLatLngs(q,r)) + ' ';
   }
   return d;
 }
@@ -365,123 +396,112 @@ function ensureSvgElements() {
   }
 }
 
-// Outline elements pool (reused)
+// Reused outline path pool
 function syncOutlines(keys) {
   const arr = [...keys];
-  // Grow pool if needed
   while (svgOutlines.length < arr.length) {
     const p = document.createElementNS(NS, 'path');
     p.setAttribute('fill', 'none');
     p.setAttribute('stroke', '#404040');
     p.setAttribute('stroke-width', '0.8');
-    p.setAttribute('stroke-opacity', '0.6');
+    p.setAttribute('stroke-opacity', '0.7');
     p.setAttribute('pointer-events', 'none');
     fogSvg.appendChild(p);
     svgOutlines.push(p);
   }
-  // Update paths
-  for (let i = 0; i < arr.length; i++) {
-    const { q, r } = parseKey(arr[i]);
-    svgOutlines[i].setAttribute('d', cornersToPx(hexCornerLatLngs(q, r)));
+  for (let i=0; i<arr.length; i++) {
+    const {q,r} = parseKey(arr[i]);
+    svgOutlines[i].setAttribute('d', cornersToPx(hexCornerLatLngs(q,r)));
     svgOutlines[i].style.display = '';
   }
-  // Hide excess
-  for (let i = arr.length; i < svgOutlines.length; i++) {
+  for (let i=arr.length; i<svgOutlines.length; i++) {
     svgOutlines[i].style.display = 'none';
   }
 }
 
-// Click target paths for select mode (in SVG so they move with it)
-let svgClickPaths = []; // {elem, key}
-
-function syncClickTargets(visibleKeys) {
-  // Remove old
-  for (const { elem } of svgClickPaths) fogSvg.removeChild(elem);
-  svgClickPaths = [];
-  if (!selectMode) return;
-
-  for (const k of visibleKeys) {
-    const { q, r } = parseKey(k);
-    const p = document.createElementNS(NS, 'path');
-    p.setAttribute('d', cornersToPx(hexCornerLatLngs(q, r)));
-    p.setAttribute('fill', 'transparent'); // needs fill to catch clicks
-    p.setAttribute('stroke', 'none');
-    p.style.cursor = 'pointer';
-    p.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onHexClick(k);
-    });
-    fogSvg.appendChild(p);
-    svgClickPaths.push({ elem: p, key: k });
-  }
+function syncSvgSize() {
+  const rect = fogSvg.getBoundingClientRect();
+  fogSvg.setAttribute('width',  Math.ceil(rect.width));
+  fogSvg.setAttribute('height', Math.ceil(rect.height));
 }
 
-// Full redraw: recompute SVG structure when revealed/mode changes
-function redrawFog() {
-  invalidateBorders();
-  drawFog();
-}
+function redrawFog() { invalidateBorders(); drawFog(); }
 
-// Fast redraw: just reproject existing structure (pan/zoom)
 function drawFog() {
   ensureSvgElements();
-
-  const fogOp    = selectMode ? 0.5 : 0.9;
+  const fogOp    = selectMode ? 0.5 : 0.95;
   const borderOp = 0.5;
-  const extra    = fogOp - borderOp; // 0.4 normally, 0 in select mode
+  const extra    = Math.max(0, fogOp - borderOp);
   const borders  = getBorders();
 
-  // Pass 1: borderOp everywhere except revealed
-  const holes1 = revealed;
+  // Pass 1
   svgPath1.setAttribute('fill-opacity', String(borderOp));
-  svgPath1.setAttribute('d', buildEvenOddPath(holes1));
+  svgPath1.setAttribute('d', buildEvenOddPath(revealed));
 
-  // Pass 2: extra opacity everywhere except revealed ∪ borders
+  // Pass 2
   if (extra > 0.001) {
     svgPath2.style.display = '';
-    const holes2 = new Set([...revealed, ...borders]);
     svgPath2.setAttribute('fill-opacity', String(extra));
-    svgPath2.setAttribute('d', buildEvenOddPath(holes2));
+    svgPath2.setAttribute('d', buildEvenOddPath(new Set([...revealed, ...borders])));
   } else {
     svgPath2.style.display = 'none';
   }
 
-  // Outlines on revealed + border hexes
   syncOutlines(new Set([...revealed, ...borders]));
-
-  // Click targets
-  if (selectMode) {
-    syncClickTargets(visibleHexKeys());
-  } else {
-    syncClickTargets(new Set()); // clears them
-  }
 }
 
 /* ═══════════════════════════════════════════════════
-   VISIBLE HEX KEYS (for select-mode click targets)
+   SELECT-MODE TAP DETECTION
+   We use a single tap handler on the overlay div.
+   On tap, convert the container point to a hex key
+   directly using ll2key — no SVG hit-testing needed.
+   Leaflet still receives all pan/zoom gestures because
+   we only call stopPropagation on confirmed single taps,
+   and we do NOT set touch-action:none on the overlay
+   (Leaflet needs touch events to flow through for panning).
+═══════════════════════════════════════════════════ */
+selOv.addEventListener('click', (e) => {
+  if (!selectMode) return;
+  // Convert click position to LatLng
+  const rect = fogSvg.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  const ll = map.containerPointToLatLng(L.point(x, y));
+  const key = ll2key(ll.lat, ll.lng);
+  e.stopPropagation();
+  onHexClick(key);
+});
+
+/* ═══════════════════════════════════════════════════
+   VISIBLE HEX KEYS
 ═══════════════════════════════════════════════════ */
 function visibleHexKeys() {
   const bounds = map.getBounds();
   const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
-  const cs = [ll2m(sw.lat,sw.lng), ll2m(sw.lat,ne.lng), ll2m(ne.lat,sw.lng), ll2m(ne.lat,ne.lng)];
-  const mxMin = Math.min(...cs.map(c=>c.mx)), mxMax = Math.max(...cs.map(c=>c.mx));
-  const myMin = Math.min(...cs.map(c=>c.my)), myMax = Math.max(...cs.map(c=>c.my));
-  const rMin  = Math.floor(myMin / (R * 1.5)) - 1;
-  const rMax  = Math.ceil (myMax / (R * 1.5)) + 1;
-  const keys  = new Set();
-  for (let r = rMin; r <= rMax; r++) {
-    const qF0 = mxMin / (Math.sqrt(3) * R) - r / 2;
-    const qF1 = mxMax / (Math.sqrt(3) * R) - r / 2;
-    for (let q = Math.floor(qF0) - 1; q <= Math.ceil(qF1) + 1; q++) keys.add(hk(q, r));
+  // Sample all 4 corners + midpoints for robustness
+  const lats = [sw.lat, ne.lat, (sw.lat+ne.lat)/2];
+  const lngs = [sw.lng, ne.lng, (sw.lng+ne.lng)/2];
+  let mxMin=Infinity, mxMax=-Infinity, myMin=Infinity, myMax=-Infinity;
+  for (const lat of lats) for (const lng of lngs) {
+    const {mx,my} = ll2m(lat,lng);
+    mxMin=Math.min(mxMin,mx); mxMax=Math.max(mxMax,mx);
+    myMin=Math.min(myMin,my); myMax=Math.max(myMax,my);
+  }
+  const rMin = Math.floor(myMin/(R*1.5))-1;
+  const rMax = Math.ceil (myMax/(R*1.5))+1;
+  const keys = new Set();
+  for (let r=rMin; r<=rMax; r++) {
+    const qF0 = mxMin/(Math.sqrt(3)*R)-r/2;
+    const qF1 = mxMax/(Math.sqrt(3)*R)-r/2;
+    for (let q=Math.floor(qF0)-1; q<=Math.ceil(qF1)+1; q++) keys.add(hk(q,r));
   }
   return keys;
 }
 
 /* ═══════════════════════════════════════════════════
-   MAP EVENTS — redraw fog on every frame
+   MAP EVENTS
 ═══════════════════════════════════════════════════ */
 map.on('move zoom viewreset', drawFog);
-map.on('moveend zoomend',     () => { if (selectMode) syncClickTargets(visibleHexKeys()); });
 
 /* ═══════════════════════════════════════════════════
    HEX CLICK (select mode)
@@ -505,55 +525,49 @@ function onHexClick(key) {
 const userIcon = L.divIcon({
   className: '',
   html: '<div style="width:18px;height:18px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 8px rgba(0,160,224,.8);"></div>',
-  iconSize: [18,18], iconAnchor: [9,9],
+  iconSize:[18,18], iconAnchor:[9,9],
 });
-let userMarker = null, userCircle = null;
+let userMarker=null, userCircle=null;
 
 function onPosUpdate(pos) {
-  const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
-  userLL  = { lat, lng };
+  const {latitude:lat, longitude:lng, accuracy:acc} = pos.coords;
+  userLL  = {lat,lng};
   userAcc = acc;
-
   if (!hasSnapped) {
     hasSnapped = true;
-    map.setView([lat, lng], 16, { animate: false });
+    map.setView([lat,lng], 16, {animate:false});
   }
-
-  if (!userMarker) userMarker = L.marker([lat,lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
+  if (!userMarker) userMarker = L.marker([lat,lng],{icon:userIcon,zIndexOffset:1000}).addTo(map);
   else             userMarker.setLatLng([lat,lng]);
-
   if (!userCircle) {
-    userCircle = L.circle([lat,lng], { radius:acc, color:'#00a0e0', fillColor:'#00a0e0', fillOpacity:0.08, weight:1, opacity:0.4 }).addTo(map);
+    userCircle = L.circle([lat,lng],{radius:acc,color:'#00a0e0',fillColor:'#00a0e0',fillOpacity:0.08,weight:1,opacity:0.4}).addTo(map);
   } else {
     userCircle.setLatLng([lat,lng]).setRadius(acc);
   }
-
   if (acc < 100) {
-    const key = ll2key(lat, lng);
+    const key = ll2key(lat,lng);
     if (!revealed.has(key)) { revealed.add(key); store(); redrawFog(); }
   }
   updateStatus();
 }
 
-function onPosError(e) { console.warn('Geo:', e.message); }
+function onPosError(e) { console.warn('Geo:',e.message); }
 
 function startTracking() {
-  trackingOn = true; hasSnapped = false;
-  document.getElementById('btn-loc').textContent = 'Stop tracking';
+  trackingOn=true; hasSnapped=false;
+  document.getElementById('btn-loc').textContent='Stop tracking';
   document.getElementById('btn-loc').classList.add('active');
-  watchId = navigator.geolocation.watchPosition(onPosUpdate, onPosError, {
-    enableHighAccuracy: true, maximumAge: 2000, timeout: 10000,
-  });
+  watchId = navigator.geolocation.watchPosition(onPosUpdate, onPosError,
+    {enableHighAccuracy:true, maximumAge:2000, timeout:10000});
 }
-
 function stopTracking() {
-  trackingOn = false;
-  document.getElementById('btn-loc').textContent = 'Use location';
+  trackingOn=false;
+  document.getElementById('btn-loc').textContent='Use location';
   document.getElementById('btn-loc').classList.remove('active');
-  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-  if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-  if (userCircle) { map.removeLayer(userCircle); userCircle = null; }
-  userLL = null; userAcc = null;
+  if (watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+  if (userMarker){map.removeLayer(userMarker);userMarker=null;}
+  if (userCircle){map.removeLayer(userCircle);userCircle=null;}
+  userLL=null; userAcc=null;
   updateStatus();
 }
 
@@ -562,72 +576,72 @@ function stopTracking() {
 ═══════════════════════════════════════════════════ */
 function updateStatus() {
   const el = document.getElementById('status-line');
-  if (trackingOn && userAcc !== null) {
+  if (trackingOn && userAcc!==null) {
     el.textContent = `±${Math.round(userAcc)} meters`;
   } else {
     const n = revealed.size;
-    el.textContent = `${n} hexagon${n !== 1 ? 's' : ''}`;
+    el.textContent = `${n} hexagon${n!==1?'s':''}`;
   }
 }
 
 /* ═══════════════════════════════════════════════════
    BUTTONS
 ═══════════════════════════════════════════════════ */
-document.getElementById('btn-menu').addEventListener('click', () => {
+document.getElementById('btn-menu').addEventListener('click', ()=>{
   document.getElementById('menu-overlay').classList.add('open');
 });
-document.getElementById('btn-loc').addEventListener('click', () => {
+document.getElementById('btn-loc').addEventListener('click', ()=>{
   if (!trackingOn) {
-    if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+    if (!navigator.geolocation){alert('Geolocation not supported.');return;}
     startTracking();
   } else { stopTracking(); }
 });
-document.getElementById('btn-select').addEventListener('click', () => {
+document.getElementById('btn-select').addEventListener('click', ()=>{
   selectMode = !selectMode;
   const btn = document.getElementById('btn-select');
   btn.textContent = selectMode ? 'Done' : 'Select';
   selectMode ? btn.classList.add('done-btn') : btn.classList.remove('done-btn');
-  fogSvg.classList.toggle('select-mode', selectMode);
+  selOv.classList.toggle('active', selectMode);
   redrawFog();
 });
 
-function closeMenu() { document.getElementById('menu-overlay').classList.remove('open'); }
+function closeMenu(){ document.getElementById('menu-overlay').classList.remove('open'); }
 document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 
-document.getElementById('menu-save').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify([...revealed])], { type:'application/json' });
+document.getElementById('menu-save').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify([...revealed])],{type:'application/json'});
   const url  = URL.createObjectURL(blob);
-  const a    = Object.assign(document.createElement('a'), {
-    href: url, download: `hexploration-${new Date().toISOString().slice(0,10)}.json`
+  const a    = Object.assign(document.createElement('a'),{
+    href:url, download:`hexploration-${new Date().toISOString().slice(0,10)}.json`
   });
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url); closeMenu();
 });
-document.getElementById('menu-load').addEventListener('click', () => {
+document.getElementById('menu-load').addEventListener('click', ()=>{
   stopTracking();
-  const inp = Object.assign(document.createElement('input'), { type:'file', accept:'.json,application/json' });
-  inp.addEventListener('change', () => {
-    const f = inp.files[0]; if (!f) return;
-    const fr = new FileReader();
-    fr.onload = e => {
+  const inp = Object.assign(document.createElement('input'),{type:'file',accept:'.json,application/json'});
+  inp.addEventListener('change', ()=>{
+    const f=inp.files[0]; if(!f) return;
+    const fr=new FileReader();
+    fr.onload=e=>{
       try {
-        const arr = JSON.parse(e.target.result);
-        if (!Array.isArray(arr)) throw 0;
-        revealed = new Set(arr); store(); redrawFog(); updateStatus(); closeMenu();
+        const arr=JSON.parse(e.target.result);
+        if(!Array.isArray(arr)) throw 0;
+        revealed=new Set(arr); store(); redrawFog(); updateStatus(); closeMenu();
       } catch { alert('Invalid file.'); }
     };
     fr.readAsText(f);
   });
   inp.click();
 });
-document.getElementById('menu-clear').addEventListener('click', () => {
+document.getElementById('menu-clear').addEventListener('click', ()=>{
   document.getElementById('confirm-overlay').classList.add('open');
 });
-document.getElementById('confirm-cancel').addEventListener('click', () => {
+document.getElementById('confirm-cancel').addEventListener('click', ()=>{
   document.getElementById('confirm-overlay').classList.remove('open');
 });
-document.getElementById('confirm-ok').addEventListener('click', () => {
+document.getElementById('confirm-ok').addEventListener('click', ()=>{
   stopTracking(); revealed.clear(); store(); redrawFog(); updateStatus();
   document.getElementById('confirm-overlay').classList.remove('open');
   closeMenu();
@@ -636,6 +650,9 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
 /* ═══════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════ */
+syncBarHeight();
+syncSvgSize();
+window.addEventListener('resize', ()=>{ syncBarHeight(); syncSvgSize(); drawFog(); });
 updateStatus();
 drawFog();
 </script>
