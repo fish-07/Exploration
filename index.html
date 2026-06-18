@@ -5,20 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Hexplorer">
-<title>Hexplorer</title>
+<meta name="apple-mobile-web-app-title" content="Hexploration">
+<title>Hexploration</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
   :root {
-    --bg:       #101010;
-    --surface:  #202020;
-    --muted:    #404040;
-    --text:     #fff;
-    --accent:   #00a0e0;
-    --danger:   #c00000;
-    --bar-h:    80px;
-    --safe-b:   env(safe-area-inset-bottom, 0px);
+    --bg:      #101010;
+    --surface: #202020;
+    --muted:   #404040;
+    --text:    #fff;
+    --accent:  #00a0e0;
+    --danger:  #c00000;
+    --bar-h:   104px;
+    --safe-b:  env(safe-area-inset-bottom, 0px);
   }
 
   html, body {
@@ -39,36 +39,36 @@
 
   /* ── Bottom bar ── */
   #bar {
-    position: fixed; left: 0; right: 0;
-    bottom: 0;
+    position: fixed; left: 0; right: 0; bottom: 0;
     height: calc(var(--bar-h) + var(--safe-b));
     background: var(--surface);
     border-top: 1px solid var(--muted);
-    display: flex; flex-direction: column;
-    align-items: center;
-    padding-bottom: var(--safe-b);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 10px 14px 0;
+    padding-bottom: calc(10px + var(--safe-b));
+    gap: 8px;
     z-index: 100;
   }
 
   #status-line {
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 500;
     color: var(--accent);
-    height: 20px;
-    line-height: 20px;
-    letter-spacing: .02em;
+    line-height: 1;
+    flex-shrink: 0;
   }
 
   #btn-row {
-    display: flex; gap: 8px;
-    padding: 6px 12px 0;
+    display: flex; gap: 10px;
     width: 100%;
+    flex-shrink: 0;
   }
 
   .bar-btn {
     flex: 1;
-    height: 44px;
+    height: 52px;
     border: none; outline: none;
-    border-radius: 12px;
+    border-radius: 14px;
     background: var(--muted);
     color: var(--text);
     font-size: 15px;
@@ -76,17 +76,15 @@
     cursor: pointer;
     transition: background .15s, transform .1s;
     -webkit-appearance: none;
+    padding: 0 4px;
   }
   .bar-btn:active { transform: scale(.96); }
-  .bar-btn.active { background: var(--accent); color: #fff; }
+  .bar-btn.active  { background: var(--accent); }
   .bar-btn.done-btn { background: var(--accent); }
-  .bar-btn.menu-open { background: var(--muted); }
 
   /* ── Menu sheet ── */
   #menu-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    z-index: 200;
+    display: none; position: fixed; inset: 0; z-index: 200;
   }
   #menu-overlay.open { display: block; }
 
@@ -98,70 +96,70 @@
   #menu-sheet {
     position: absolute; left: 0; right: 0; bottom: 0;
     background: var(--surface);
-    border-radius: 20px 20px 0 0;
-    padding: 16px 16px calc(16px + var(--safe-b));
+    border-radius: 22px 22px 0 0;
+    padding: 14px 16px calc(16px + var(--safe-b));
     display: flex; flex-direction: column; gap: 10px;
   }
 
   #menu-handle {
-    width: 40px; height: 4px;
-    border-radius: 2px;
-    background: var(--muted);
-    align-self: center;
-    margin-bottom: 6px;
+    width: 40px; height: 4px; border-radius: 2px;
+    background: var(--muted); align-self: center; margin-bottom: 4px;
   }
 
   .menu-btn {
-    width: 100%; height: 52px;
-    border: none; outline: none;
-    border-radius: 14px;
-    background: var(--muted);
-    color: var(--text);
-    font-size: 17px;
-    font-weight: 600;
-    cursor: pointer;
+    width: 100%; height: 54px;
+    border: none; outline: none; border-radius: 14px;
+    background: var(--muted); color: var(--text);
+    font-size: 17px; font-weight: 600; cursor: pointer;
     -webkit-appearance: none;
     transition: background .15s, transform .1s;
   }
   .menu-btn:active { transform: scale(.98); }
-  .menu-btn.danger { background: var(--danger); }
+  .menu-btn.danger  { background: var(--danger); }
   .menu-btn.back-btn { background: var(--bg); color: var(--accent); }
 
   /* ── Confirm dialog ── */
   #confirm-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    z-index: 300;
-    background: rgba(0,0,0,.6);
+    display: none; position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,.65);
     align-items: center; justify-content: center;
   }
   #confirm-overlay.open { display: flex; }
 
   #confirm-box {
     background: var(--surface);
-    border-radius: 18px;
-    padding: 24px 20px 16px;
-    width: min(320px, 90vw);
-    display: flex; flex-direction: column; gap: 10px; align-items: center;
+    border-radius: 20px;
+    padding: 28px 20px 20px;
+    width: min(300px, 88vw);
+    display: flex; flex-direction: column; gap: 16px; align-items: center;
   }
-  #confirm-box p { font-size: 18px; font-weight: 600; text-align: center; }
-  #confirm-box small { font-size: 13px; color: #999; text-align: center; line-height: 1.4; }
+  #confirm-box p { font-size: 20px; font-weight: 700; text-align: center; }
 
   .confirm-row { display: flex; gap: 10px; width: 100%; }
   .confirm-row button {
-    flex: 1; height: 48px;
-    border: none; outline: none; border-radius: 12px;
+    flex: 1; height: 50px;
+    border: none; outline: none; border-radius: 13px;
     font-size: 16px; font-weight: 600; cursor: pointer;
     -webkit-appearance: none;
   }
   #confirm-cancel { background: var(--muted); color: var(--text); }
   #confirm-ok     { background: var(--danger); color: #fff; }
+
+  /* ── Fog overlay rectangle (low-zoom mode) ── */
+  #fog-rect {
+    display: none;
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 50;
+  }
 </style>
 </head>
 <body>
 
-<!-- Map container -->
-<div id="map"></div>
+<div id="map">
+  <!-- SVG fog for low-zoom mode sits inside the map div so it moves with nothing -->
+</div>
+<canvas id="fog-canvas" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:50;"></canvas>
 
 <!-- Bottom bar -->
 <div id="bar">
@@ -178,10 +176,10 @@
   <div id="menu-backdrop"></div>
   <div id="menu-sheet">
     <div id="menu-handle"></div>
+    <button class="menu-btn back-btn" id="menu-back">Back</button>
     <button class="menu-btn" id="menu-save">Save</button>
     <button class="menu-btn" id="menu-load">Load</button>
     <button class="menu-btn danger" id="menu-clear">Clear data</button>
-    <button class="menu-btn back-btn" id="menu-back">Back</button>
   </div>
 </div>
 
@@ -189,7 +187,6 @@
 <div id="confirm-overlay">
   <div id="confirm-box">
     <p>Are you sure?</p>
-    <small>This will erase all revealed hexagons and cannot be undone.</small>
     <div class="confirm-row">
       <button id="confirm-cancel">Cancel</button>
       <button id="confirm-ok">Clear</button>
@@ -197,31 +194,29 @@
   </div>
 </div>
 
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
 <script>
 'use strict';
 
-/* ═══════════════════════════════════════════════
-   HEX GRID CONSTANTS
-   100m flat-to-flat (pointy-top orientation):
-   width (corner-to-corner) = 100 / cos(30°) ≈ 115.47m
-   height (flat-to-flat)    = 100m
-   hex grid rows offset by half width
-═══════════════════════════════════════════════ */
-const HEX_FLAT   = 100;   // flat-to-flat metres (what we call "100m wide")
-const HEX_SIZE   = HEX_FLAT / Math.sqrt(3); // circumradius in metres ≈ 57.74m
-// pointy-top hex: width = sqrt(3)*size, height = 2*size
-// flat-to-flat (short diagonal) = sqrt(3)*size = 100m → size = 100/sqrt(3)
+/* ═══════════════════════════════════════════
+   CONSTANTS
+   Pointy-top hexagons, 100m flat-to-flat.
+   size (circumradius) = 100 / sqrt(3) ≈ 57.735m
+═══════════════════════════════════════════ */
+const HEX_SIZE = 100 / Math.sqrt(3); // metres
 
-/* ═══════════════════════════════════════════════
-   MAP INIT
-═══════════════════════════════════════════════ */
+// Below this zoom, skip rendering full fog grid; use canvas overlay instead
+const DETAIL_ZOOM = 14;
+
+/* ═══════════════════════════════════════════
+   MAP — start at 0,0 (null island) so user
+   navigates to their own location
+═══════════════════════════════════════════ */
 const map = L.map('map', {
-  center: [51.505, -0.09],
-  zoom: 16,
+  center: [20, 0],
+  zoom: 3,
   zoomControl: false,
   attributionControl: true,
 });
@@ -231,130 +226,194 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
 }).addTo(map);
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    STATE
-═══════════════════════════════════════════════ */
-let revealedHexes = new Set();   // keys: "q,r"
+═══════════════════════════════════════════ */
+let revealedHexes = new Set(); // "q,r"
 let trackingOn    = false;
 let selectMode    = false;
 let userLatLng    = null;
 let userAccuracy  = null;
 let watchId       = null;
-let hexLayers     = {};          // key → L.polygon
+let hexLayers     = {};        // key → L.polygon
 let userMarker    = null;
 let userCircle    = null;
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    STORAGE
-═══════════════════════════════════════════════ */
-const STORE_KEY = 'hexplorer_v1';
+═══════════════════════════════════════════ */
+const STORE_KEY = 'hexploration_v1';
 
 function saveToStorage() {
-  try {
-    localStorage.setItem(STORE_KEY, JSON.stringify([...revealedHexes]));
-  } catch(e) {}
+  try { localStorage.setItem(STORE_KEY, JSON.stringify([...revealedHexes])); } catch(e) {}
 }
-
 function loadFromStorage() {
   try {
     const raw = localStorage.getItem(STORE_KEY);
     if (raw) revealedHexes = new Set(JSON.parse(raw));
   } catch(e) {}
 }
-
 loadFromStorage();
 
-/* ═══════════════════════════════════════════════
-   HEX MATH  (pointy-top axial coordinates)
-   Earth metres → axial (q,r) and back
-═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   HEX MATH
+   Fixed origin at (0,0) in lat/lng.
+   We convert lat/lng → local metres → axial.
 
-// Metres per degree latitude (approx, at given lat)
-function metersPerDegLat(lat) {
-  return 111320;
-}
-function metersPerDegLon(lat) {
+   Pointy-top axial (q,r):
+     x_m = HEX_SIZE * sqrt(3) * (q + r/2)
+     y_m = HEX_SIZE * 3/2     * r
+   Inverse:
+     q = (x_m / (HEX_SIZE*sqrt(3))) - r/2
+     r = y_m * 2 / (3 * HEX_SIZE)
+
+   We use a LOCAL metre coordinate system centred
+   on (originLat, originLng) = (0, 0) for simplicity,
+   with cos(lat) correction applied per-point.
+═══════════════════════════════════════════ */
+
+// Exact metres per degree at given latitude
+const M_PER_DEG_LAT = 111320; // essentially constant
+
+function mPerDegLon(lat) {
   return 111320 * Math.cos(lat * Math.PI / 180);
 }
 
-// Convert LatLng → fractional axial hex coords
-function latlngToAxial(lat, lng, originLat, originLng) {
-  const mPerDegLat = metersPerDegLat(originLat);
-  const mPerDegLon = metersPerDegLon(originLat);
-  const dx = (lng - originLng) * mPerDegLon;
-  const dy = (lat - originLat) * mPerDegLat;
+// LatLng → metres from origin (0,0)
+function latlngToMetres(lat, lng) {
+  // Use the latitude itself for the cosine correction (accurate for small areas)
+  const mx = lng * mPerDegLon(lat);
+  const my = lat * M_PER_DEG_LAT;
+  return { mx, my };
+}
+
+// Metres → fractional axial
+function metresToFracAxial(mx, my) {
   const s  = HEX_SIZE;
-  // pointy-top axial: q = (dx*sqrt3/3 - dy/3)/s, r = dy*2/3/s
-  const fq = (dx * Math.sqrt(3)/3 - dy / 3) / s;
-  const fr = (dy * 2/3) / s;
+  // pointy-top: r = my*2/(3s), q = mx/(sqrt3*s) - r/2
+  const fr = my * 2 / (3 * s);
+  const fq = mx / (Math.sqrt(3) * s) - fr / 2;
   return { fq, fr };
 }
 
-// Axial → rounded axial (hex coordinate)
+// Fractional axial → rounded axial (cube-coordinate rounding)
 function axialRound(fq, fr) {
   const fs = -fq - fr;
   let q = Math.round(fq), r = Math.round(fr), s = Math.round(fs);
   const dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s - fs);
-  if (dq > dr && dq > ds) q = -r - s;
-  else if (dr > ds)         r = -q - s;
+  if (dq > dr && dq > ds)      q = -r - s;
+  else if (dr > ds)             r = -q - s;
   return { q, r };
 }
 
-// Axial → centre LatLng
-function axialToLatLng(q, r, originLat, originLng) {
-  const s  = HEX_SIZE;
-  const mPerDegLat = metersPerDegLat(originLat);
-  const mPerDegLon = metersPerDegLon(originLat);
-  // pointy-top: x = s * sqrt(3)*(q + r/2), y = s * 3/2 * r
-  const dx = s * Math.sqrt(3) * (q + r / 2);
-  const dy = s * 1.5 * r;
-  return [originLat + dy / mPerDegLat, originLng + dx / mPerDegLon];
+// LatLng → hex key
+function latlngToHexKey(lat, lng) {
+  const { mx, my } = latlngToMetres(lat, lng);
+  const { fq, fr } = metresToFracAxial(mx, my);
+  const { q, r }   = axialRound(fq, fr);
+  return hexKey(q, r);
 }
 
-// Axial → 6 corner LatLngs (pointy-top)
-function hexCorners(q, r, originLat, originLng) {
-  const [cLat, cLng] = axialToLatLng(q, r, originLat, originLng);
+// Axial → centre LatLng
+function axialCentreLatLng(q, r) {
   const s  = HEX_SIZE;
-  const mPerDegLat = metersPerDegLat(originLat);
-  const mPerDegLon = metersPerDegLon(originLat);
+  const mx = s * Math.sqrt(3) * (q + r / 2);
+  const my = s * 1.5 * r;
+  const lat = my / M_PER_DEG_LAT;
+  const lng = mx / mPerDegLon(lat);
+  return [lat, lng];
+}
+
+// Axial → 6 corner LatLngs
+function hexCorners(q, r) {
+  const [cLat, cLng] = axialCentreLatLng(q, r);
+  const s   = HEX_SIZE;
   const corners = [];
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 180) * (60 * i - 30); // pointy-top
-    const dx = s * Math.cos(angle);
-    const dy = s * Math.sin(angle);
-    corners.push([cLat + dy / mPerDegLat, cLng + dx / mPerDegLon]);
+    const angle = (Math.PI / 180) * (60 * i - 30); // pointy-top: first corner at 30°
+    const dx_m  = s * Math.cos(angle);
+    const dy_m  = s * Math.sin(angle);
+    const lat   = cLat + dy_m / M_PER_DEG_LAT;
+    const lng   = cLng + dx_m / mPerDegLon(cLat);
+    corners.push([lat, lng]);
   }
   return corners;
 }
 
 // Axial neighbours
-function axialNeighbours(q, r) {
-  return [
-    [q+1,r],[q-1,r],[q,r+1],[q,r-1],[q+1,r-1],[q-1,r+1]
-  ];
+function neighbours(q, r) {
+  return [[q+1,r],[q-1,r],[q,r+1],[q,r-1],[q+1,r-1],[q-1,r+1]];
 }
-
-/* ═══════════════════════════════════════════════
-   HEX RENDERING
-═══════════════════════════════════════════════ */
-
-// Use map centre as origin so coords stay reasonable
-function getOrigin() {
-  const c = map.getCenter();
-  return { lat: c.lat, lng: c.lng };
-}
-
-// Stable origin pinned on first render, updated lazily
-let originLat = map.getCenter().lat;
-let originLng = map.getCenter().lng;
 
 function hexKey(q, r) { return `${q},${r}`; }
 
+/* ═══════════════════════════════════════════
+   VISIBLE HEX KEYS — correct rectangular screen coverage
+
+   The viewport in lat/lng maps to a region in (mx,my) metre space.
+   We find the axial bounding box using cube coordinates.
+   Cube: x=q, z=r, y=-q-r.
+   We iterate q from qMin..qMax; for each q, r ranges so that
+   the hex centre falls inside the metre bounding box.
+
+   Simpler robust approach: iterate over a grid of screen sample
+   points and collect their hex keys, then expand by 1 ring.
+   For DETAIL_ZOOM and above we do full-grid render.
+   Below DETAIL_ZOOM we only render revealed + border hexes.
+═══════════════════════════════════════════ */
+function visibleHexKeys() {
+  const bounds  = map.getBounds();
+  const sw      = bounds.getSouthWest();
+  const ne      = bounds.getNorthEast();
+
+  // Convert all four corners to metres
+  const corners_m = [
+    latlngToMetres(sw.lat, sw.lng),
+    latlngToMetres(sw.lat, ne.lng),
+    latlngToMetres(ne.lat, sw.lng),
+    latlngToMetres(ne.lat, ne.lng),
+  ];
+
+  const mxMin = Math.min(...corners_m.map(c => c.mx));
+  const mxMax = Math.max(...corners_m.map(c => c.mx));
+  const myMin = Math.min(...corners_m.map(c => c.my));
+  const myMax = Math.max(...corners_m.map(c => c.my));
+
+  // Convert metre bbox corners to fractional axial, then to cube coords
+  // and find the full axial bounding box
+  const s = HEX_SIZE;
+  // For a pointy-top hex grid, we step in metre space:
+  // column spacing (x): sqrt(3) * s
+  // row spacing (y):    1.5 * s
+  // with column offset of sqrt(3)/2 * s per row
+  const colStep = Math.sqrt(3) * s;
+  const rowStep = 1.5 * s;
+
+  const rMin = Math.floor(myMin / rowStep) - 1;
+  const rMax = Math.ceil (myMax / rowStep) + 1;
+
+  const keys = new Set();
+  for (let r = rMin; r <= rMax; r++) {
+    // For this row, what q range covers mxMin..mxMax?
+    // x_m = sqrt(3)*s*(q + r/2)  → q = x_m/(sqrt(3)*s) - r/2
+    const qFMin = mxMin / (Math.sqrt(3) * s) - r / 2;
+    const qFMax = mxMax / (Math.sqrt(3) * s) - r / 2;
+    const qMin  = Math.floor(qFMin) - 1;
+    const qMax  = Math.ceil (qFMax) + 1;
+    for (let q = qMin; q <= qMax; q++) {
+      keys.add(hexKey(q, r));
+    }
+  }
+  return keys;
+}
+
+/* ═══════════════════════════════════════════
+   OPACITY / STYLE
+═══════════════════════════════════════════ */
 function getOpacity(key) {
   if (revealedHexes.has(key)) return 0;
-  // check if any neighbour is revealed
   const [q, r] = key.split(',').map(Number);
-  for (const [nq, nr] of axialNeighbours(q, r)) {
+  for (const [nq, nr] of neighbours(q, r)) {
     if (revealedHexes.has(hexKey(nq, nr))) return 0.5;
   }
   return selectMode ? 0.5 : 0.9;
@@ -365,44 +424,110 @@ function hexStyle(key) {
   return {
     fillColor:   '#101010',
     fillOpacity: op,
-    color:       '#404040',
+    color:       op === 0 ? 'transparent' : '#404040',
     weight:      0.8,
-    opacity:     op === 0 ? 0 : 0.6,
+    opacity:     op === 0 ? 0 : 0.7,
   };
 }
 
-// Which hexes are visible in the current map view?
-function visibleHexKeys() {
-  const bounds = map.getBounds();
-  const sw = bounds.getSouthWest();
-  const ne = bounds.getNorthEast();
-  const padding = 2; // extra hex rows/cols
+/* ═══════════════════════════════════════════
+   CANVAS FOG OVERLAY (low-zoom mode)
+   Draws a single semi-transparent rectangle over the map,
+   with "holes" punched out for revealed hexes.
+   We skip drawing unrevealed hexes individually.
+═══════════════════════════════════════════ */
+const fogCanvas = document.getElementById('fog-canvas');
+const fogCtx    = fogCanvas.getContext('2d');
 
-  // Convert corners to axial
-  const swA = axialRound(...Object.values(latlngToAxial(sw.lat, sw.lng, originLat, originLng)));
-  const neA = axialRound(...Object.values(latlngToAxial(ne.lat, ne.lng, originLat, originLng)));
-
-  const qMin = Math.min(swA.q, neA.q) - padding;
-  const qMax = Math.max(swA.q, neA.q) + padding;
-  const rMin = Math.min(swA.r, neA.r) - padding;
-  const rMax = Math.max(swA.r, neA.r) + padding;
-
-  const keys = new Set();
-  for (let q = qMin; q <= qMax; q++) {
-    for (let r = rMin; r <= rMax; r++) {
-      keys.add(hexKey(q, r));
-    }
-  }
-  return keys;
+function latLngToPixel(lat, lng) {
+  const pt = map.latLngToContainerPoint(L.latLng(lat, lng));
+  return [pt.x, pt.y];
 }
 
-// Hex overlay layer group
+function drawFogCanvas() {
+  const w = window.innerWidth;
+  const h = window.innerHeight - document.getElementById('bar').offsetHeight;
+  fogCanvas.width  = w;
+  fogCanvas.height = h;
+  fogCtx.clearRect(0, 0, w, h);
+
+  const fogOpacity = selectMode ? 0.5 : 0.9;
+
+  // Draw full fog
+  fogCtx.fillStyle = `rgba(16,16,16,${fogOpacity})`;
+  fogCtx.fillRect(0, 0, w, h);
+
+  // Punch out revealed hexes using destination-out
+  fogCtx.globalCompositeOperation = 'destination-out';
+
+  for (const key of revealedHexes) {
+    const [q, r] = key.split(',').map(Number);
+    const corners = hexCorners(q, r);
+    fogCtx.beginPath();
+    for (let i = 0; i < corners.length; i++) {
+      const [px, py] = latLngToPixel(corners[i][0], corners[i][1]);
+      i === 0 ? fogCtx.moveTo(px, py) : fogCtx.lineTo(px, py);
+    }
+    fogCtx.closePath();
+    fogCtx.fill();
+  }
+
+  // Draw border hexes at 50% opacity (additive fill after clearing)
+  fogCtx.globalCompositeOperation = 'destination-over';
+  // Already cleared for revealed. Now draw borders at 50% fog.
+  const borderOpacity = 0.5;
+  fogCtx.fillStyle = `rgba(16,16,16,${borderOpacity})`;
+
+  const borderKeys = new Set();
+  for (const key of revealedHexes) {
+    const [q, r] = key.split(',').map(Number);
+    for (const [nq, nr] of neighbours(q, r)) {
+      const nk = hexKey(nq, nr);
+      if (!revealedHexes.has(nk)) borderKeys.add(nk);
+    }
+  }
+
+  for (const key of borderKeys) {
+    const [q, r] = key.split(',').map(Number);
+    const corners = hexCorners(q, r);
+    fogCtx.beginPath();
+    for (let i = 0; i < corners.length; i++) {
+      const [px, py] = latLngToPixel(corners[i][0], corners[i][1]);
+      i === 0 ? fogCtx.moveTo(px, py) : fogCtx.lineTo(px, py);
+    }
+    fogCtx.closePath();
+    fogCtx.fill();
+  }
+
+  fogCtx.globalCompositeOperation = 'source-over';
+}
+
+/* ═══════════════════════════════════════════
+   HEX LAYER GROUP
+═══════════════════════════════════════════ */
 const hexGroup = L.layerGroup().addTo(map);
 
+function isDetailZoom() {
+  return map.getZoom() >= DETAIL_ZOOM;
+}
+
+// Build set of keys that need individual polygon rendering (detail zoom)
+// = all visible keys
 function renderHexes() {
+  if (isDetailZoom()) {
+    fogCanvas.style.display = 'none';
+    renderDetailMode();
+  } else {
+    fogCanvas.style.display = 'block';
+    renderLowZoomMode();
+  }
+  updateStatusLine();
+}
+
+function renderDetailMode() {
   const visible = visibleHexKeys();
 
-  // Remove off-screen layers
+  // Remove off-screen
   for (const key of Object.keys(hexLayers)) {
     if (!visible.has(key)) {
       hexGroup.removeLayer(hexLayers[key]);
@@ -413,100 +538,111 @@ function renderHexes() {
   // Add / update visible
   for (const key of visible) {
     const [q, r] = key.split(',').map(Number);
-    const corners = hexCorners(q, r, originLat, originLng);
-    const style   = hexStyle(key);
+    const style  = hexStyle(key);
 
     if (hexLayers[key]) {
       hexLayers[key].setStyle(style);
     } else {
-      const poly = L.polygon(corners, style);
+      const corners = hexCorners(q, r);
+      const poly    = L.polygon(corners, style);
+      poly.on('click', (e) => onHexClick(key, e));
+      hexGroup.addLayer(poly);
+      hexLayers[key] = poly;
+    }
+  }
+}
+
+function renderLowZoomMode() {
+  // Remove all individual polygons except revealed + border
+  const keepKeys = new Set();
+  for (const key of revealedHexes) keepKeys.add(key);
+  for (const key of revealedHexes) {
+    const [q, r] = key.split(',').map(Number);
+    for (const [nq, nr] of neighbours(q, r)) keepKeys.add(hexKey(nq, nr));
+  }
+
+  for (const key of Object.keys(hexLayers)) {
+    if (!keepKeys.has(key)) {
+      hexGroup.removeLayer(hexLayers[key]);
+      delete hexLayers[key];
+    }
+  }
+
+  for (const key of keepKeys) {
+    const [q, r] = key.split(',').map(Number);
+    const style  = hexStyle(key);
+    if (hexLayers[key]) {
+      hexLayers[key].setStyle(style);
+    } else {
+      const corners = hexCorners(q, r);
+      const poly    = L.polygon(corners, style);
       poly.on('click', (e) => onHexClick(key, e));
       hexGroup.addLayer(poly);
       hexLayers[key] = poly;
     }
   }
 
-  updateStatusLine();
+  drawFogCanvas();
 }
 
 function refreshAllStyles() {
-  for (const key of Object.keys(hexLayers)) {
-    hexLayers[key].setStyle(hexStyle(key));
+  if (isDetailZoom()) {
+    for (const key of Object.keys(hexLayers)) {
+      hexLayers[key].setStyle(hexStyle(key));
+    }
+  } else {
+    renderLowZoomMode();
   }
   updateStatusLine();
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    HEX CLICK
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function onHexClick(key, e) {
   if (!selectMode) return;
   L.DomEvent.stopPropagation(e);
 
-  // Don't allow de-selecting the hex the user is currently in
   if (trackingOn && userLatLng) {
-    const userKey = latlngToHexKey(userLatLng.lat, userLatLng.lng);
-    if (key === userKey && revealedHexes.has(key)) return;
+    const uk = latlngToHexKey(userLatLng.lat, userLatLng.lng);
+    if (key === uk && revealedHexes.has(key)) return;
   }
 
-  if (revealedHexes.has(key)) {
-    revealedHexes.delete(key);
-  } else {
-    revealedHexes.add(key);
-  }
+  if (revealedHexes.has(key)) revealedHexes.delete(key);
+  else                          revealedHexes.add(key);
   saveToStorage();
   refreshAllStyles();
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    LOCATION
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 const userIcon = L.divIcon({
   className: '',
-  html: `<div style="
-    width:18px;height:18px;
-    border-radius:50%;
-    background:#00a0e0;
-    border:3px solid #fff;
-    box-shadow:0 0 8px rgba(0,160,224,.8);
-  "></div>`,
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
+  html: `<div style="width:18px;height:18px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 8px rgba(0,160,224,.8);"></div>`,
+  iconSize: [18,18], iconAnchor: [9,9],
 });
-
-function latlngToHexKey(lat, lng) {
-  const { fq, fr } = latlngToAxial(lat, lng, originLat, originLng);
-  const { q, r }   = axialRound(fq, fr);
-  return hexKey(q, r);
-}
 
 function onLocationUpdate(pos) {
   const { latitude: lat, longitude: lng, accuracy } = pos.coords;
-  userLatLng  = { lat, lng };
+  userLatLng   = { lat, lng };
   userAccuracy = accuracy;
 
-  // Show marker
   if (!userMarker) {
     userMarker = L.marker([lat, lng], { icon: userIcon, zIndexOffset: 1000 }).addTo(map);
   } else {
     userMarker.setLatLng([lat, lng]);
   }
 
-  // Show accuracy circle
   if (!userCircle) {
     userCircle = L.circle([lat, lng], {
-      radius: accuracy,
-      color: '#00a0e0',
-      fillColor: '#00a0e0',
-      fillOpacity: 0.08,
-      weight: 1,
-      opacity: 0.4,
+      radius: accuracy, color: '#00a0e0',
+      fillColor: '#00a0e0', fillOpacity: 0.08, weight: 1, opacity: 0.4,
     }).addTo(map);
   } else {
     userCircle.setLatLng([lat, lng]).setRadius(accuracy);
   }
 
-  // Reveal hex if accuracy < 100m
   if (accuracy < 100) {
     const key = latlngToHexKey(lat, lng);
     if (!revealedHexes.has(key)) {
@@ -519,18 +655,14 @@ function onLocationUpdate(pos) {
   updateStatusLine();
 }
 
-function onLocationError(err) {
-  console.warn('Geo error', err.message);
-}
+function onLocationError(err) { console.warn('Geo:', err.message); }
 
 function startTracking() {
   trackingOn = true;
   document.getElementById('btn-loc').textContent = 'Stop tracking';
   document.getElementById('btn-loc').classList.add('active');
   watchId = navigator.geolocation.watchPosition(onLocationUpdate, onLocationError, {
-    enableHighAccuracy: true,
-    maximumAge: 2000,
-    timeout: 10000,
+    enableHighAccuracy: true, maximumAge: 2000, timeout: 10000,
   });
 }
 
@@ -538,35 +670,30 @@ function stopTracking() {
   trackingOn = false;
   document.getElementById('btn-loc').textContent = 'Use location';
   document.getElementById('btn-loc').classList.remove('active');
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-  }
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
   if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
   if (userCircle) { map.removeLayer(userCircle); userCircle = null; }
-  userLatLng  = null;
-  userAccuracy = null;
+  userLatLng = null; userAccuracy = null;
   updateStatusLine();
   refreshAllStyles();
 }
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    STATUS LINE
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 function updateStatusLine() {
   const el = document.getElementById('status-line');
   if (trackingOn && userAccuracy !== null) {
-    const m = Math.round(userAccuracy);
-    el.textContent = `±${m} meters`;
+    el.textContent = `±${Math.round(userAccuracy)} meters`;
   } else {
     const n = revealedHexes.size;
     el.textContent = `${n} hexagon${n !== 1 ? 's' : ''}`;
   }
 }
 
-/* ═══════════════════════════════════════════════
-   BUTTON HANDLERS
-═══════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════ */
 document.getElementById('btn-menu').addEventListener('click', () => {
   document.getElementById('menu-overlay').classList.add('open');
 });
@@ -583,13 +710,8 @@ document.getElementById('btn-loc').addEventListener('click', () => {
 document.getElementById('btn-select').addEventListener('click', () => {
   selectMode = !selectMode;
   const btn = document.getElementById('btn-select');
-  if (selectMode) {
-    btn.textContent = 'Done';
-    btn.classList.add('done-btn');
-  } else {
-    btn.textContent = 'Select';
-    btn.classList.remove('done-btn');
-  }
+  btn.textContent = selectMode ? 'Done' : 'Select';
+  selectMode ? btn.classList.add('done-btn') : btn.classList.remove('done-btn');
   refreshAllStyles();
 });
 
@@ -597,7 +719,6 @@ document.getElementById('btn-select').addEventListener('click', () => {
 function closeMenu() {
   document.getElementById('menu-overlay').classList.remove('open');
 }
-
 document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 
@@ -606,11 +727,9 @@ document.getElementById('menu-save').addEventListener('click', () => {
   const blob = new Blob([data], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
-  a.href     = url;
-  a.download = `hexplorer-${new Date().toISOString().slice(0,10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  a.href = url;
+  a.download = `hexploration-${new Date().toISOString().slice(0,10)}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
   closeMenu();
 });
@@ -618,23 +737,17 @@ document.getElementById('menu-save').addEventListener('click', () => {
 document.getElementById('menu-load').addEventListener('click', () => {
   stopTracking();
   const input = document.createElement('input');
-  input.type  = 'file';
-  input.accept = '.json,application/json';
+  input.type = 'file'; input.accept = '.json,application/json';
   input.addEventListener('change', () => {
-    const file = input.files[0];
-    if (!file) return;
+    const file = input.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const arr = JSON.parse(e.target.result);
         if (!Array.isArray(arr)) throw new Error();
         revealedHexes = new Set(arr);
-        saveToStorage();
-        renderHexes();
-        closeMenu();
-      } catch {
-        alert('Invalid file.');
-      }
+        saveToStorage(); renderHexes(); closeMenu();
+      } catch { alert('Invalid file.'); }
     };
     reader.readAsText(file);
   });
@@ -644,24 +757,24 @@ document.getElementById('menu-load').addEventListener('click', () => {
 document.getElementById('menu-clear').addEventListener('click', () => {
   document.getElementById('confirm-overlay').classList.add('open');
 });
-
 document.getElementById('confirm-cancel').addEventListener('click', () => {
   document.getElementById('confirm-overlay').classList.remove('open');
 });
-
 document.getElementById('confirm-ok').addEventListener('click', () => {
   stopTracking();
-  revealedHexes.clear();
-  saveToStorage();
-  renderHexes();
+  revealedHexes.clear(); saveToStorage(); renderHexes();
   document.getElementById('confirm-overlay').classList.remove('open');
   closeMenu();
 });
 
-/* ═══════════════════════════════════════════════
+/* ═══════════════════════════════════════════
    MAP EVENTS
-═══════════════════════════════════════════════ */
+═══════════════════════════════════════════ */
 map.on('moveend zoomend', renderHexes);
+// Redraw canvas fog during pan too
+map.on('move zoom', () => {
+  if (!isDetailZoom() && revealedHexes.size > 0) drawFogCanvas();
+});
 
 // Initial render
 renderHexes();
