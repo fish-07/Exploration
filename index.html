@@ -3,11 +3,35 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Exploration</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Explore</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; background: #101010; font-family: -apple-system, 'SF Pro Display', sans-serif; color: #E0E0E0; overflow: hidden; }
+html, body {
+  height: 100%; background: #101010;
+  font-family: -apple-system, 'SF Pro Display', sans-serif;
+  color: #E0E0E0; overflow: hidden;
+  /* Portrait orientation lock via CSS */
+}
+
+/* Portrait lock: rotate content when in landscape */
+@media screen and (orientation: landscape) {
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 9999;
+    background: #101010;
+  }
+  body::after {
+    content: 'Please rotate to portrait';
+    position: fixed; inset: 0; z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    color: #606070; font-size: 16px; font-weight: 600;
+    /* CSS doesn't allow display:flex on ::after by default in all browsers,
+       so we use a real element approach via JS below instead */
+  }
+}
 
 #map { position: absolute; top: 0; left: 0; right: 0; bottom: 148px; }
 #fog-canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 400; }
@@ -15,10 +39,14 @@ html, body { height: 100%; background: #101010; font-family: -apple-system, 'SF 
 .leaflet-control-zoom { display: none !important; }
 .leaflet-control-attribution { font-size: 9px !important; opacity: 0.35; }
 
+/* Markers and position dot must sit above fog canvas (z-index 400) */
+.leaflet-marker-pane { z-index: 500 !important; }
+.leaflet-shadow-pane { z-index: 499 !important; }
+
 /* HUD */
 #hud {
-  position: absolute; top: 14px; left: 14px; z-index: 500;
-  background: rgba(16,16,16,0.88); backdrop-filter: blur(12px);
+  position: absolute; top: 14px; left: 14px; z-index: 600;
+  background: rgba(16,16,16,1); 
   border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
   padding: 10px 14px; display: flex; gap: 14px; align-items: flex-start;
 }
@@ -29,26 +57,29 @@ html, body { height: 100%; background: #101010; font-family: -apple-system, 'SF 
 .stat-val.warn { color: #F0A000; }
 .stat-val.bad  { color: #E03020; }
 
-/* Follow button */
+/* Follow button — opaque, always looks tappable */
 #follow-btn {
-  position: absolute; top: 14px; right: 14px; z-index: 500;
-  background: rgba(16,16,16,0.88); backdrop-filter: blur(12px);
+  position: absolute; top: 14px; right: 14px; z-index: 600;
+  background: #1A1A1A;
   border: 1px solid rgba(255,255,255,0.20); border-radius: 10px;
-  padding: 9px 16px; font-size: 13px; font-weight: 600; color: #C0C0C0;
+  padding: 9px 16px; font-size: 13px; font-weight: 600; color: #F0F0F0;
   cursor: pointer; display: none;
 }
-#follow-btn.active { border-color: #00A0E0; color: #00A0E0; background: rgba(0,160,224,0.10); }
+#follow-btn.active {
+  border-color: #00A0E0; color: #00A0E0; background: #00A0E0;
+  color: #F0F0F0;
+}
 
 /* Bottom bar */
 #bottom {
-  position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 600;
   background: #101010; border-top: 1px solid rgba(255,255,255,0.08);
   padding: 12px 14px 30px; display: flex; flex-direction: column; gap: 8px;
 }
 #main-btn {
   width: 100%; padding: 17px; border: none; border-radius: 10px;
   font-size: 16px; font-weight: 700; cursor: pointer;
-  background: #00A0E0; color: #101010; transition: background 0.15s, opacity 0.15s;
+  background: #00A0E0; color: #F0F0F0; transition: background 0.15s, opacity 0.15s;
 }
 #main-btn.tracking { background: #E03020; color: #F0F0F0; }
 #main-btn:disabled { opacity: 0.35; cursor: default; }
@@ -61,11 +92,11 @@ html, body { height: 100%; background: #101010; font-family: -apple-system, 'SF 
   transition: all 0.15s; text-align: center;
 }
 .sec-btn:disabled { opacity: 0.30; cursor: default; }
-.sec-btn.active { background: rgba(0,160,224,0.12); border-color: #00A0E0; color: #00A0E0; }
+.sec-btn.active { background: #00A0E0; border-color: #00A0E0; color: #F0F0F0; }
 
 /* Menu overlay */
 #menu-overlay {
-  position: absolute; inset: 0; z-index: 600;
+  position: absolute; inset: 0; z-index: 700;
   background: rgba(10,10,10,0.72); backdrop-filter: blur(8px);
   display: none; align-items: flex-end; justify-content: center;
 }
@@ -83,15 +114,24 @@ html, body { height: 100%; background: #101010; font-family: -apple-system, 'SF 
   background: #222; color: #D0D0D0; text-align: center; transition: background 0.12s;
 }
 .menu-btn.danger { color: #E03020; }
-.menu-btn.back   { background: #00A0E0; color: #101010; }
+.menu-btn.back   { background: #00A0E0; color: #F0F0F0; }
 
-/* Edit mode overlay markers handled via Leaflet */
 #map.drawing { cursor: crosshair; }
 #map.editing  { cursor: pointer; }
+
+/* Portrait lock overlay */
+#rotate-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 99999;
+  background: #101010;
+  align-items: center; justify-content: center;
+  color: #606070; font-size: 16px; font-weight: 600;
+}
 </style>
 </head>
 <body>
 
+<div id="rotate-overlay">Rotate to portrait</div>
 <div id="map"></div>
 <canvas id="fog-canvas"></canvas>
 
@@ -122,64 +162,69 @@ html, body { height: 100%; background: #101010; font-family: -apple-system, 'SF 
 
 <div id="menu-overlay" onclick="onOverlayClick(event)">
   <div id="menu-panel">
-    <button class="menu-btn back"   onclick="closeMenu()">Back</button>
-    <button class="menu-btn"        onclick="menuSave()">Save</button>
-    <label  class="menu-btn"       >Load<input type="file" accept=".json" onchange="menuLoad(event)" style="display:none"></label>
-    <button class="menu-btn"        onclick="startEdit()">Edit</button>
-    <button class="menu-btn" id="units-btn" onclick="toggleUnits()">Imperial units</button>
+    <button class="menu-btn back" onclick="closeMenu()">Back</button>
+    <button class="menu-btn"     onclick="startEdit()">Edit</button>
+    <button class="menu-btn"     onclick="menuSave()">Save</button>
+    <label  class="menu-btn"    >Load<input type="file" accept=".json" onchange="menuLoad(event)" style="display:none"></label>
+    <button class="menu-btn" id="units-btn" onclick="toggleUnits()">Use imperial units</button>
     <button class="menu-btn danger" onclick="menuClear()">Clear data</button>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-// ── constants ─────────────────────────────────────────────────────────────────
-const INNER_R_M      = 100;   // fully clear radius
-const MID_R_M        = 300;   // semi-clear out to here
-const FOG_OUTER      = 0.93;  // nearly opaque beyond 300m
-const FOG_MID        = 0.50;  // 50% between 100-300m
-const MIN_DIST_M     = 8;     // min movement to record GPS point
-const MAX_ACCURACY_M = 100;   // reject GPS fixes worse than this
-const MAX_GAP_M      = 200;   // gap beyond which a new island is started
-const STORAGE_KEY    = 'exploration_v2';
+// ── Portrait lock ─────────────────────────────────────────────────────────────
+function checkOrientation() {
+  const landscape = window.innerWidth > window.innerHeight;
+  document.getElementById('rotate-overlay').style.display = landscape ? 'flex' : 'none';
+}
+window.addEventListener('resize', checkOrientation);
+checkOrientation();
 
-// ── state ─────────────────────────────────────────────────────────────────────
-// segments: Array of Array<{lat,lng}>  — each is an independent island
-// drawSegment: vertices of path being drawn (not yet committed)
-// editMarkers: Leaflet markers shown in edit mode, one per point
+// ── Constants ─────────────────────────────────────────────────────────────────
+const INNER_R_M      = 100;   // fully clear radius (m)
+const MID_R_M        = 300;   // semi-transparent out to here (m)
+const FOG_OUTER      = 0.90;  // opacity beyond MID_R_M
+const FOG_MID        = 0.50;  // opacity between INNER and MID
+const FOG_EDIT       = 0.50;  // outer fog opacity during draw/edit modes (same as mid)
+const MIN_DIST_M     = 15;    // min GPS movement to record new point
+const MAX_ACCURACY_M = 100;   // reject GPS fixes worse than this (m)
+const MAX_GAP_M      = 200;   // gap above which GPS starts a new island
+const STORAGE_KEY    = 'explore_v3';
 
-let segments     = [];
-let activeSegIdx = null;  // which segment GPS is currently appending to
-let currentPos   = null;
+// ── State ─────────────────────────────────────────────────────────────────────
+let segments     = [];        // Array<Array<{lat,lng}>> — independent islands
+let activeSegIdx = null;      // segment index GPS is appending to
+let currentPos   = null;      // {lat,lng} of last known position (for blue dot)
 let tracking     = false;
 let watchId      = null;
 let followMe     = false;
 let metric       = true;
 let totalDist    = 0;
 
-// draw mode
+// Draw mode
 let drawMode     = false;
-let drawSegment  = [];
+let drawSegment  = [];        // vertices placed this draw session
 let drawMarkers  = [];
 let drawPolyline = null;
 
-// edit mode
-let editMode     = false;
-let editMarkers  = [];  // [{marker, segIdx, ptIdx}]
+// Edit mode
+let editMode        = false;
+let editMarkers     = [];     // [{marker, segIdx, ptIdx}]
+let editUndoStack   = [];     // stack of removed points for undo: [{segIdx, ptIdx, pt, before, after}]
 
-// position marker
-let posMarker    = null;
+// Position marker (blue dot)
+let posMarker = null;
 
-// ── persist ───────────────────────────────────────────────────────────────────
-(function init() {
+// ── Persist ───────────────────────────────────────────────────────────────────
+(function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const d = JSON.parse(raw);
-      if (d.segments) segments = d.segments;
-      if (d.metric !== undefined) metric = d.metric;
-      totalDist = computeTotalDist();
-    }
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    if (d.segments) segments = d.segments;
+    if (d.metric !== undefined) metric = d.metric;
+    totalDist = computeTotalDist();
   } catch(e) {}
 })();
 
@@ -187,27 +232,29 @@ function saveStorage() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ segments, metric })); } catch(e) {}
 }
 
-// ── map ───────────────────────────────────────────────────────────────────────
+// ── Map ───────────────────────────────────────────────────────────────────────
 const map = L.map('map', { center: [40,-20], zoom: 3, zoomControl: false, attributionControl: true });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',   { maxZoom: 19 }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',    { maxZoom: 19 }).addTo(map);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', { maxZoom: 19, pane: 'shadowPane' }).addTo(map);
 
 map.on('dragstart', () => { if (!drawMode && !editMode) setFollow(false); });
 map.on('move zoom resize viewreset', redrawFog);
 map.on('click', onMapClick);
 
-// ── canvas ────────────────────────────────────────────────────────────────────
+// ── Canvas ────────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('fog-canvas');
 const ctx    = canvas.getContext('2d');
 
 function resizeCanvas() {
   const r = document.getElementById('map').getBoundingClientRect();
-  canvas.width = r.width; canvas.height = r.height;
-  canvas.style.cssText = `position:absolute;top:${r.top}px;left:${r.left}px;` +
+  canvas.width  = r.width;
+  canvas.height = r.height;
+  canvas.style.cssText =
+    `position:absolute;top:${r.top}px;left:${r.left}px;` +
     `width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:400`;
 }
 
-// ── fog ───────────────────────────────────────────────────────────────────────
+// ── Fog render ────────────────────────────────────────────────────────────────
 function metersToPixels(lat, m) {
   const p1 = map.latLngToContainerPoint([lat, 0]);
   const p2 = map.latLngToContainerPoint([lat + m / 111320, 0]);
@@ -220,20 +267,20 @@ function buildMask(w, h, radiusM) {
   x.fillStyle = x.strokeStyle = 'rgba(0,0,0,1)';
   x.lineJoin = 'round'; x.lineCap = 'round';
 
-  // All committed segments + current GPS position (as its own single-point island)
+  // GPS position shown as its own island (dot only, no connection to segments)
   const segs = currentPos ? [...segments, [currentPos]] : segments;
 
   for (const seg of segs) {
     if (!seg.length) continue;
-    const r = metersToPixels(seg[0].lat, radiusM);
+    const r  = metersToPixels(seg[0].lat, radiusM);
     x.lineWidth = r * 2;
     const p0 = map.latLngToContainerPoint([seg[0].lat, seg[0].lng]);
-    x.beginPath(); x.arc(p0.x, p0.y, r, 0, Math.PI*2); x.fill();
+    x.beginPath(); x.arc(p0.x, p0.y, r, 0, Math.PI * 2); x.fill();
     for (let i = 1; i < seg.length; i++) {
       const pa = map.latLngToContainerPoint([seg[i-1].lat, seg[i-1].lng]);
       const pb = map.latLngToContainerPoint([seg[i].lat,   seg[i].lng]);
       x.beginPath(); x.moveTo(pa.x, pa.y); x.lineTo(pb.x, pb.y); x.stroke();
-      x.beginPath(); x.arc(pb.x, pb.y, r, 0, Math.PI*2); x.fill();
+      x.beginPath(); x.arc(pb.x, pb.y, r, 0, Math.PI * 2); x.fill();
     }
   }
   return c;
@@ -242,20 +289,25 @@ function buildMask(w, h, radiusM) {
 function redrawFog() {
   resizeCanvas();
   const w = canvas.width, h = canvas.height;
-  const f = new OffscreenCanvas(w, h);
+
+  // In draw/edit mode, outer fog matches mid fog so the whole map is navigable
+  const outerOpacity = (drawMode || editMode) ? FOG_EDIT : FOG_OUTER;
+
+  const f  = new OffscreenCanvas(w, h);
   const fc = f.getContext('2d');
 
-  // Outer fog
-  fc.fillStyle = `rgba(14,14,14,${FOG_OUTER})`;
+  fc.fillStyle = `rgba(14,14,14,${outerOpacity})`;
   fc.fillRect(0, 0, w, h);
 
   const segs = currentPos ? [...segments, [currentPos]] : segments;
-  if (!segs.some(s => s.length > 0)) { ctx.clearRect(0,0,w,h); ctx.drawImage(f,0,0); return; }
+  if (!segs.some(s => s.length > 0)) {
+    ctx.clearRect(0, 0, w, h); ctx.drawImage(f, 0, 0); return;
+  }
 
   const midMask   = buildMask(w, h, MID_R_M);
   const innerMask = buildMask(w, h, INNER_R_M);
 
-  // Mid-fog layer clipped to midMask
+  // Mid layer: FOG_MID opacity, clipped to mid mask shape
   const midLayer = new OffscreenCanvas(w, h);
   const mc = midLayer.getContext('2d');
   mc.drawImage(midMask, 0, 0);
@@ -263,13 +315,13 @@ function redrawFog() {
   mc.fillStyle = `rgba(14,14,14,${FOG_MID})`;
   mc.fillRect(0, 0, w, h);
 
-  // Replace outer with mid in mid zone
+  // Replace outer pixels in mid zone with mid fog
   fc.globalCompositeOperation = 'destination-out';
   fc.drawImage(midMask, 0, 0);
   fc.globalCompositeOperation = 'source-over';
   fc.drawImage(midLayer, 0, 0);
 
-  // Punch inner fully clear
+  // Punch inner zone fully clear
   fc.globalCompositeOperation = 'destination-out';
   fc.drawImage(innerMask, 0, 0);
 
@@ -278,9 +330,7 @@ function redrawFog() {
 }
 
 // ── GPS tracking ──────────────────────────────────────────────────────────────
-function toggleTracking() {
-  tracking ? stopTracking() : startTracking();
-}
+function toggleTracking() { tracking ? stopTracking() : startTracking(); }
 
 function startTracking() {
   if (!navigator.geolocation) return;
@@ -294,10 +344,9 @@ function startTracking() {
 
 function stopTracking() {
   if (watchId != null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
-  tracking = false;
+  tracking     = false;
   activeSegIdx = null;
-  // Do NOT clear currentPos from the map immediately — just stop updating
-  currentPos = null;
+  currentPos   = null;
   if (posMarker) { map.removeLayer(posMarker); posMarker = null; }
   document.getElementById('s-acc-wrap').style.display = 'none';
   document.getElementById('follow-btn').style.display = 'none';
@@ -309,21 +358,20 @@ function stopTracking() {
 function onPosition(pos) {
   const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
 
-  // Update accuracy display regardless
+  // Accuracy display — always update
   const accEl = document.getElementById('s-acc');
   const accM  = Math.round(acc);
-  accEl.textContent = metric ? `±${accM} m` : `±${Math.round(acc*3.281)} ft`;
-  accEl.className = 'stat-val ' + (acc < 50 ? 'good' : acc < 100 ? 'warn' : 'bad');
+  accEl.textContent = metric ? `±${accM} m` : `±${Math.round(acc * 3.281)} ft`;
+  accEl.className   = 'stat-val ' + (acc < 50 ? 'good' : acc < 100 ? 'warn' : 'bad');
   document.getElementById('s-acc-wrap').style.display = 'flex';
 
-  // Always show blue dot at estimated position
+  // Always show blue dot at current estimated position (above fog via z-index)
   updatePosMarker(lat, lng);
   if (followMe) map.setView([lat, lng], Math.max(map.getZoom(), 16), { animate: true, duration: 0.5 });
 
-  // Only reveal map if accuracy is good enough
+  // Only reveal map if accuracy is sufficient
   if (acc >= MAX_ACCURACY_M) return;
 
-  // Island logic: if no active segment, or gap is too large, start a new island
   if (activeSegIdx === null) {
     segments.push([{ lat, lng }]);
     activeSegIdx = segments.length - 1;
@@ -331,9 +379,14 @@ function onPosition(pos) {
     const seg  = segments[activeSegIdx];
     const last = seg[seg.length - 1];
     const d    = haversine(last.lat, last.lng, lat, lng);
-    if (d < MIN_DIST_M) return;
+
+    if (d < MIN_DIST_M) return; // too close, skip
+
+    // Check proximity to ANY existing point across ALL segments
+    if (nearAnyExistingPoint(lat, lng, MIN_DIST_M)) return;
+
     if (d >= MAX_GAP_M) {
-      // Large gap — start a new island rather than connecting
+      // Large gap — new island
       segments.push([{ lat, lng }]);
       activeSegIdx = segments.length - 1;
     } else {
@@ -347,19 +400,28 @@ function onPosition(pos) {
   redrawFog();
 }
 
+function nearAnyExistingPoint(lat, lng, threshold) {
+  for (const seg of segments) {
+    for (const pt of seg) {
+      if (haversine(pt.lat, pt.lng, lat, lng) < threshold) return true;
+    }
+  }
+  return false;
+}
+
 function onGpsError() { stopTracking(); }
 
 function updatePosMarker(lat, lng) {
   const icon = L.divIcon({
     className: '',
     html: `<div style="width:14px;height:14px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 0 4px rgba(0,160,224,0.25)"></div>`,
-    iconAnchor: [7,7],
+    iconAnchor: [7, 7],
   });
   if (posMarker) posMarker.setLatLng([lat, lng]);
-  else posMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 }).addTo(map);
+  else posMarker = L.marker([lat, lng], { icon, zIndexOffset: 2000 }).addTo(map);
 }
 
-// ── draw path mode ────────────────────────────────────────────────────────────
+// ── Draw path mode ────────────────────────────────────────────────────────────
 function drawBtnAction() {
   if (drawMode)      doneDraw();
   else if (editMode) doneEdit();
@@ -377,10 +439,10 @@ function startDraw() {
   drawSegment = [];
   document.getElementById('map').classList.add('drawing');
   updateUI();
+  redrawFog(); // lighten outer fog
 }
 
 function doneDraw() {
-  // Commit drawn segment as a new independent island (no connection to existing trail)
   if (drawSegment.length > 0) {
     const pts = [drawSegment[0]];
     for (let i = 1; i < drawSegment.length; i++) {
@@ -402,8 +464,10 @@ function undoDraw() {
   if (m) map.removeLayer(m);
   if (drawPolyline) { map.removeLayer(drawPolyline); drawPolyline = null; }
   if (drawSegment.length > 1) {
-    drawPolyline = L.polyline(drawSegment.map(p => [p.lat, p.lng]),
-      { color: '#00A0E0', weight: 2, opacity: 0.7, dashArray: '6 4' }).addTo(map);
+    drawPolyline = L.polyline(
+      drawSegment.map(p => [p.lat, p.lng]),
+      { color: '#00A0E0', weight: 2, opacity: 0.7, dashArray: '6 4' }
+    ).addTo(map);
   }
   if (drawSegment.length === 0) endDraw();
 }
@@ -415,36 +479,43 @@ function endDraw() {
   drawSegment = [];
   document.getElementById('map').classList.remove('drawing');
   updateUI();
+  redrawFog(); // restore outer fog
 }
 
-// ── edit mode ─────────────────────────────────────────────────────────────────
+// ── Edit mode ─────────────────────────────────────────────────────────────────
 function startEdit() {
   closeMenu();
-  // Stop location if on
   if (tracking) stopTracking();
-  editMode = true;
+  editMode      = true;
+  editUndoStack = [];
   document.getElementById('map').classList.add('editing');
   showEditMarkers();
   updateUI();
+  redrawFog(); // lighten outer fog
 }
 
 function showEditMarkers() {
   clearEditMarkers();
   segments.forEach((seg, si) => {
     seg.forEach((pt, pi) => {
-      const icon = L.divIcon({
-        className: '',
-        html: `<div style="width:22px;height:22px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 8px rgba(0,160,224,0.6);cursor:pointer"></div>`,
-        iconAnchor: [11,11],
-      });
-      const marker = L.marker([pt.lat, pt.lng], { icon, zIndexOffset: 900 }).addTo(map);
-      marker.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        removePoint(si, pi);
-      });
+      const marker = makeEditMarker(pt, si, pi);
       editMarkers.push({ marker, segIdx: si, ptIdx: pi });
     });
   });
+}
+
+function makeEditMarker(pt, si, pi) {
+  const icon = L.divIcon({
+    className: '',
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 8px rgba(0,160,224,0.6);cursor:pointer"></div>`,
+    iconAnchor: [11, 11],
+  });
+  const marker = L.marker([pt.lat, pt.lng], { icon, zIndexOffset: 2000 }).addTo(map);
+  marker.on('click', (e) => {
+    L.DomEvent.stopPropagation(e);
+    removePoint(si, pi);
+  });
+  return marker;
 }
 
 function clearEditMarkers() {
@@ -456,41 +527,66 @@ function removePoint(segIdx, ptIdx) {
   const seg = segments[segIdx];
   if (!seg) return;
 
-  // Split segment at this point — removing the point and any segments connected to it.
-  // Points before it form one sub-segment, points after form another.
+  const removedPt = seg[segIdx]; // for undo
+  // Store enough to reverse: the full segment before removal, plus indices
+  editUndoStack.push({
+    segIdx,
+    ptIdx,
+    pt: seg[ptIdx],
+    segBefore: seg.slice(),  // full copy of segment before split
+  });
+
+  // Split segment at removed point
   const before = seg.slice(0, ptIdx);
   const after  = seg.slice(ptIdx + 1);
-
   const newSegs = [];
   if (before.length > 0) newSegs.push(before);
   if (after.length  > 0) newSegs.push(after);
 
   segments.splice(segIdx, 1, ...newSegs);
 
-  // Recompute distance from scratch
   totalDist = computeTotalDist();
   saveStorage();
   updateStats();
-
-  // Rebuild all edit markers (indices changed)
   showEditMarkers();
   redrawFog();
 }
 
 function undoEdit() {
-  // Undo not tracked point-by-point here; treat as done
-  doneEdit();
-}
+  if (editUndoStack.length === 0) {
+    // Nothing to undo — exit edit mode
+    doneEdit();
+    return;
+  }
+  const last = editUndoStack.pop();
+  // Restore the full segment as it was before the removal
+  // We need to figure out where the replacement segments are now
+  // Simplest correct approach: restore segBefore in place of the
+  // (up to) two segments that replaced it.
+  // The splice inserted 0–2 segments at last.segIdx; remove them and put segBefore back.
+  const before = last.segBefore.slice(0, last.ptIdx);
+  const after  = last.segBefore.slice(last.ptIdx + 1);
+  const insertedCount = (before.length > 0 ? 1 : 0) + (after.length > 0 ? 1 : 0);
 
-function doneEdit() {
-  editMode = false;
-  clearEditMarkers();
-  document.getElementById('map').classList.remove('editing');
-  updateUI();
+  segments.splice(last.segIdx, insertedCount, last.segBefore);
+
+  totalDist = computeTotalDist();
+  saveStorage();
+  updateStats();
+  showEditMarkers();
   redrawFog();
 }
 
-// ── map click ─────────────────────────────────────────────────────────────────
+function doneEdit() {
+  editMode      = false;
+  editUndoStack = [];
+  clearEditMarkers();
+  document.getElementById('map').classList.remove('editing');
+  updateUI();
+  redrawFog(); // restore outer fog
+}
+
+// ── Map click ─────────────────────────────────────────────────────────────────
 function onMapClick(e) {
   if (!drawMode) return;
   const pt = { lat: e.latlng.lat, lng: e.latlng.lng };
@@ -499,20 +595,23 @@ function onMapClick(e) {
   const icon = L.divIcon({
     className: '',
     html: `<div style="width:18px;height:18px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 8px rgba(0,160,224,0.5)"></div>`,
-    iconAnchor: [9,9],
+    iconAnchor: [9, 9],
   });
-  drawMarkers.push(L.marker([pt.lat, pt.lng], { icon }).addTo(map));
+  drawMarkers.push(L.marker([pt.lat, pt.lng], { icon, zIndexOffset: 2000 }).addTo(map));
 
   if (drawPolyline) map.removeLayer(drawPolyline);
   if (drawSegment.length > 1) {
-    drawPolyline = L.polyline(drawSegment.map(p => [p.lat, p.lng]),
-      { color: '#00A0E0', weight: 2, opacity: 0.7, dashArray: '6 4' }).addTo(map);
+    drawPolyline = L.polyline(
+      drawSegment.map(p => [p.lat, p.lng]),
+      { color: '#00A0E0', weight: 2, opacity: 0.7, dashArray: '6 4' }
+    ).addTo(map);
   }
 }
 
-// ── menu ──────────────────────────────────────────────────────────────────────
+// ── Menu ──────────────────────────────────────────────────────────────────────
 function openMenu() {
-  document.getElementById('units-btn').textContent = metric ? 'Imperial units' : 'Metric units';
+  document.getElementById('units-btn').textContent =
+    metric ? 'Use imperial units' : 'Use metric units';
   document.getElementById('menu-overlay').classList.add('open');
 }
 function closeMenu() {
@@ -524,8 +623,11 @@ function onOverlayClick(e) {
 function menuSave() {
   closeMenu();
   const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob([JSON.stringify({ version: 5, segments })], { type: 'application/json' })),
-    download: 'exploration-data.json',
+    href: URL.createObjectURL(new Blob(
+      [JSON.stringify({ version: 6, segments })],
+      { type: 'application/json' }
+    )),
+    download: 'explore-data.json',
   });
   a.click();
 }
@@ -538,7 +640,7 @@ function menuLoad(e) {
       segments  = d.segments || (d.trail ? [d.trail] : []);
       totalDist = computeTotalDist();
       updateStats(); saveStorage();
-      const last = segments.flatMap(s=>s).pop();
+      const last = segments.flatMap(s => s).pop();
       if (last) map.setView([last.lat, last.lng], 12);
       redrawFog();
     } catch(err) {}
@@ -549,10 +651,11 @@ function menuLoad(e) {
 }
 function toggleUnits() {
   metric = !metric;
-  document.getElementById('units-btn').textContent = metric ? 'Imperial units' : 'Metric units';
+  document.getElementById('units-btn').textContent =
+    metric ? 'Use imperial units' : 'Use metric units';
   saveStorage();
   updateStats();
-  // Do NOT close menu (step 9)
+  // Menu stays open (step 9 from previous round)
 }
 function menuClear() {
   if (!confirm('Clear all data?')) return;
@@ -564,24 +667,32 @@ function menuClear() {
   closeMenu();
 }
 
-// ── follow ────────────────────────────────────────────────────────────────────
+// ── Follow ────────────────────────────────────────────────────────────────────
 function setFollow(val) {
   followMe = val;
   const btn = document.getElementById('follow-btn');
   btn.textContent = val ? 'Following' : 'Follow';
-  btn.className   = val ? 'active' : '';
+  if (val) {
+    btn.classList.add('active');
+    // Immediately recenter on current position if known
+    if (currentPos) {
+      map.setView([currentPos.lat, currentPos.lng],
+        Math.max(map.getZoom(), 16), { animate: true, duration: 0.5 });
+    }
+  } else {
+    btn.classList.remove('active');
+  }
 }
 function toggleFollow() { setFollow(!followMe); }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 function updateUI() {
-  const mainBtn = document.getElementById('main-btn');
-  const menuBtn = document.getElementById('menu-btn');
-  const drawBtn = document.getElementById('draw-btn');
+  const mainBtn  = document.getElementById('main-btn');
+  const menuBtn  = document.getElementById('menu-btn');
+  const drawBtn  = document.getElementById('draw-btn');
   const followBtn = document.getElementById('follow-btn');
 
   if (editMode) {
-    // Location off and grayed, menu replaced by Undo, draw replaced by Done
     mainBtn.disabled = true;
     mainBtn.textContent = 'Use location';
     mainBtn.className = '';
@@ -590,7 +701,6 @@ function updateUI() {
     drawBtn.classList.add('active');
     followBtn.style.display = 'none';
   } else if (drawMode) {
-    // Location still accessible, menu → Undo, draw → Done
     mainBtn.disabled = false;
     mainBtn.textContent = tracking ? 'Stop tracking' : 'Use location';
     mainBtn.className = tracking ? 'tracking' : '';
@@ -609,7 +719,7 @@ function updateUI() {
   }
 }
 
-// ── stats ─────────────────────────────────────────────────────────────────────
+// ── Stats ─────────────────────────────────────────────────────────────────────
 function updateStats() {
   document.getElementById('s-dist').textContent = fmtDist(totalDist);
   document.getElementById('s-area').textContent = fmtArea(computeArea());
@@ -621,23 +731,21 @@ function computeTotalDist() {
 
 function segmentLength(seg) {
   let d = 0;
-  for (let i = 1; i < seg.length; i++) d += haversine(seg[i-1].lat, seg[i-1].lng, seg[i].lat, seg[i].lng);
+  for (let i = 1; i < seg.length; i++)
+    d += haversine(seg[i-1].lat, seg[i-1].lng, seg[i].lat, seg[i].lng);
   return d;
 }
 
 function computeArea() {
-  // Corridor area: each segment contributes length × 2r + circle at each end.
-  // For isolated points (length=0) it's just π r².
-  // This approximates the fully revealed (inner) corridor area.
+  // Corridor approximation: π r² per isolated point, 2r × length strip per segment
   const r = INNER_R_M;
   let area = 0;
   for (const seg of segments) {
-    if (seg.length === 0) continue;
-    area += Math.PI * r * r; // start cap
+    if (!seg.length) continue;
+    area += Math.PI * r * r; // first cap
     for (let i = 1; i < seg.length; i++) {
-      const d = haversine(seg[i-1].lat, seg[i-1].lng, seg[i].lat, seg[i].lng);
-      area += d * 2 * r;      // corridor strip
-      area += Math.PI * r * r; // end cap per point (slight overcount but acceptable)
+      area += haversine(seg[i-1].lat, seg[i-1].lng, seg[i].lat, seg[i].lng) * 2 * r;
+      area += Math.PI * r * r; // cap per subsequent point (slight overcount, acceptable)
     }
   }
   return area;
@@ -651,8 +759,8 @@ function fmtDist(m) {
 
 function fmtArea(sqm) {
   if (metric) {
-    if (sqm >= 1e6)  return `${(sqm/1e6).toFixed(2)} km²`;
-    if (sqm >= 1e4)  return `${(sqm/1e4).toFixed(1)} ha`;
+    if (sqm >= 1e6) return `${(sqm/1e6).toFixed(2)} km²`;
+    if (sqm >= 1e4) return `${(sqm/1e4).toFixed(1)} ha`;
     return `${Math.round(sqm)} m²`;
   }
   const sqft = sqm * 10.764;
@@ -661,17 +769,18 @@ function fmtArea(sqm) {
   return `${Math.round(sqft)} ft²`;
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function haversine(lat1, lng1, lat2, lng2) {
   const R = 6371000, dL = (lat2-lat1)*Math.PI/180, dG = (lng2-lng1)*Math.PI/180;
-  const a = Math.sin(dL/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dG/2)**2;
+  const a = Math.sin(dL/2)**2 +
+    Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dG/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
 function interpolate(a, b, stepM) {
   const total = haversine(a.lat, a.lng, b.lat, b.lng);
   const steps = Math.max(1, Math.floor(total / stepM));
-  const pts = [];
+  const pts   = [];
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
     pts.push({ lat: a.lat + (b.lat-a.lat)*t, lng: a.lng + (b.lng-a.lng)*t });
@@ -679,7 +788,7 @@ function interpolate(a, b, stepM) {
   return pts;
 }
 
-// ── init ──────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 updateUI();
 updateStats();
 window.addEventListener('resize', redrawFog);
