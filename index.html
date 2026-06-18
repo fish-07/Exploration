@@ -14,17 +14,13 @@ html, body {
   font-family: -apple-system, 'SF Pro Display', sans-serif;
   color: #F0F0F0; overflow: hidden;
 }
-
 #map { position: absolute; top: 0; left: 0; right: 0; bottom: 148px; }
-
+#fog-canvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 400; }
 .leaflet-control-zoom { display: none !important; }
 .leaflet-control-attribution { font-size: 9px !important; opacity: 0.35; }
-
-/* HUD */
 #hud {
   position: absolute; top: 14px; left: 14px; z-index: 500;
-  background: #101010;
-  border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
+  background: #101010; border: 1px solid rgba(255,255,255,0.10); border-radius: 12px;
   padding: 10px 14px; display: flex; gap: 14px; align-items: flex-start;
 }
 .stat { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 44px; }
@@ -33,19 +29,13 @@ html, body {
 .stat-val.good { color: #00E080; }
 .stat-val.warn { color: #F0A000; }
 .stat-val.bad  { color: #E03020; }
-
-/* Follow button */
 #follow-btn {
   position: absolute; top: 14px; right: 14px; z-index: 500;
-  background: #202020;
-  border: 1px solid rgba(255,255,255,0.20); border-radius: 10px;
+  background: #202020; border: 1px solid rgba(255,255,255,0.20); border-radius: 10px;
   padding: 9px 0; width: 100px; text-align: center;
-  font-size: 13px; font-weight: 600; color: #F0F0F0;
-  cursor: pointer; display: none;
+  font-size: 13px; font-weight: 600; color: #F0F0F0; cursor: pointer; display: none;
 }
-#follow-btn.active { border-color: #00A0E0; background: #00A0E0; color: #F0F0F0; }
-
-/* Bottom bar */
+#follow-btn.active { border-color: #00A0E0; background: #00A0E0; }
 #bottom {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 500;
   background: #101010; border-top: 1px solid rgba(255,255,255,0.08);
@@ -54,22 +44,17 @@ html, body {
 #main-btn {
   width: 100%; padding: 17px; border: none; border-radius: 10px;
   font-size: 16px; font-weight: 700; cursor: pointer;
-  background: #00A0E0; color: #F0F0F0; transition: background 0.15s, opacity 0.15s;
+  background: #00A0E0; color: #F0F0F0; transition: background 0.15s;
 }
-#main-btn.tracking { background: #E03020; color: #F0F0F0; }
+#main-btn.tracking { background: #E03020; }
 #main-btn:disabled { opacity: 0.35; cursor: default; }
-
 #sec-row { display: flex; gap: 8px; }
 .sec-btn {
   flex: 1; padding: 13px 0; background: #202020;
   border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
-  font-size: 14px; font-weight: 600; color: #A0A0A0; cursor: pointer;
-  transition: all 0.15s; text-align: center;
+  font-size: 14px; font-weight: 600; color: #A0A0A0; cursor: pointer; text-align: center;
 }
-.sec-btn:disabled { opacity: 0.30; cursor: default; }
 .sec-btn.active { background: #00A0E0; border-color: #00A0E0; color: #F0F0F0; }
-
-/* Menu overlay */
 #menu-overlay {
   position: absolute; inset: 0; z-index: 600;
   background: rgba(0,0,0,0.72); backdrop-filter: blur(8px);
@@ -77,47 +62,34 @@ html, body {
 }
 #menu-overlay.open { display: flex; }
 #menu-panel {
-  width: 100%; background: #181818;
-  border-top: 1px solid rgba(255,255,255,0.10);
-  border-radius: 20px 20px 0 0;
-  padding: 18px 16px 40px;
+  width: 100%; background: #181818; border-top: 1px solid rgba(255,255,255,0.10);
+  border-radius: 20px 20px 0 0; padding: 18px 16px 40px;
   display: flex; flex-direction: column; gap: 10px;
 }
 .menu-btn {
   width: 100%; padding: 16px; border: none; border-radius: 10px;
   font-size: 15px; font-weight: 600; cursor: pointer;
-  background: #202020; color: #D0D0D0; text-align: center; transition: background 0.12s;
+  background: #202020; color: #D0D0D0; text-align: center;
 }
 .menu-btn.danger { color: #E03020; }
 .menu-btn.back   { background: #00A0E0; color: #F0F0F0; }
-
-/* Portrait lock overlay */
 #rotate-overlay {
-  display: none;
-  position: fixed; inset: 0; z-index: 99999;
-  background: #101010;
-  align-items: center; justify-content: center;
+  display: none; position: fixed; inset: 0; z-index: 99999;
+  background: #101010; align-items: center; justify-content: center;
   color: #606060; font-size: 16px; font-weight: 600;
 }
 </style>
 </head>
 <body>
-
 <div id="rotate-overlay">Rotate to portrait</div>
 <div id="map"></div>
+<canvas id="fog-canvas"></canvas>
 
 <div id="hud">
-  <div class="stat">
-    <span class="stat-lbl">Hexagons</span>
-    <span class="stat-val" id="s-hexes">0</span>
-  </div>
-  <div class="stat">
-    <span class="stat-lbl">Area</span>
-    <span class="stat-val" id="s-area">0 m²</span>
-  </div>
+  <div class="stat"><span class="stat-lbl">Hexagons</span><span class="stat-val" id="s-hexes">0</span></div>
+  <div class="stat"><span class="stat-lbl">Area</span><span class="stat-val" id="s-area">0 m²</span></div>
   <div class="stat" id="s-acc-wrap" style="display:none">
-    <span class="stat-lbl">Accuracy</span>
-    <span class="stat-val" id="s-acc">—</span>
+    <span class="stat-lbl">Accuracy</span><span class="stat-val" id="s-acc">—</span>
   </div>
 </div>
 
@@ -133,9 +105,9 @@ html, body {
 
 <div id="menu-overlay" onclick="onOverlayClick(event)">
   <div id="menu-panel">
-    <button class="menu-btn back" onclick="closeMenu()">Back</button>
-    <button class="menu-btn"     onclick="menuSave()">Save</button>
-    <label  class="menu-btn"    >Load<input type="file" accept=".json" onchange="menuLoad(event)" style="display:none"></label>
+    <button class="menu-btn back"   onclick="closeMenu()">Back</button>
+    <button class="menu-btn"        onclick="menuSave()">Save</button>
+    <label  class="menu-btn">Load<input type="file" accept=".json" onchange="menuLoad(event)" style="display:none"></label>
     <button class="menu-btn" id="units-btn" onclick="toggleUnits()">Use imperial units</button>
     <button class="menu-btn danger" onclick="menuClear()">Clear data</button>
   </div>
@@ -143,64 +115,59 @@ html, body {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-// ── Portrait lock ─────────────────────────────────────────────────────────────
+// ── Orientation lock ──────────────────────────────────────────────────────────
 function checkOrientation() {
-  const landscape = window.innerWidth > window.innerHeight;
-  document.getElementById('rotate-overlay').style.display = landscape ? 'flex' : 'none';
+  document.getElementById('rotate-overlay').style.display =
+    window.innerWidth > window.innerHeight ? 'flex' : 'none';
 }
 window.addEventListener('resize', checkOrientation);
 checkOrientation();
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-// Hex orientation: flat top/bottom, pointy left/right.
-// HEX_RADIUS_M is the center-to-corner distance (half the point-to-point width).
-// With a 100m point-to-point width, radius = 50m.
-// Flat-to-flat height = 2 * 50 * sin(60°) = 50√3 ≈ 86.6m.
-const HEX_RADIUS_M   = 50;
-const FOG_OUTER      = 0.90;  // unvisited hexes not adjacent to visited
-const FOG_MID        = 0.50;  // hexes adjacent to visited (or all non-visited during Select)
-const MAX_ACCURACY_M = 100;   // discard GPS fixes with error >= this (m)
+// Flat-top hex (pointy left/right). Point-to-point width = 100m → radius = 50m.
+const HEX_R_M        = 50;          // center-to-corner metres
+const SQRT3          = Math.sqrt(3);
+const HEX_AREA_M2    = 1.5 * SQRT3 * HEX_R_M * HEX_R_M; // ≈ 6495 m²
+const M_PER_DEG_LAT  = 111320;
+const FOG_OUTER      = 0.90;
+const FOG_MID        = 0.50;
+const MAX_ACCURACY_M = 100;
 const DEFAULT_ZOOM   = 16;
 const STORAGE_KEY    = 'explore_hex_v1';
 
-// Metres per degree latitude (approximately constant)
-const M_PER_DEG_LAT  = 111320;
-
-// ── Hex grid math ─────────────────────────────────────────────────────────────
-// Flat-top axial coordinates (q, r).
-// In this orientation:
-//   - q axis runs horizontally (left/right)
-//   - r axis runs diagonally
-// Center of hex (q,r) in metres from origin:
-//   x = R * 3/2 * q
+// ── Hex math ──────────────────────────────────────────────────────────────────
+// Axial coordinates (q, r) for a flat-top grid.
+// Center of (q,r) in metres from origin:
+//   x = R * 1.5 * q
 //   y = R * √3 * (r + q/2)
 
-const SQRT3 = Math.sqrt(3);
+function mPerDegLng(lat) {
+  return M_PER_DEG_LAT * Math.cos(lat * Math.PI / 180);
+}
 
-// Convert axial (q,r) to a geographic center {lat, lng} given an origin lat/lng
-function hexToLatLng(q, r, originLat, originLng) {
-  const mPerDegLng = M_PER_DEG_LAT * Math.cos(originLat * Math.PI / 180);
-  const xM = HEX_RADIUS_M * 1.5 * q;
-  const yM = HEX_RADIUS_M * SQRT3 * (r + q / 2);
+// Geographic origin for the grid — fixed so the grid is globally consistent
+const OLat = 0, OLng = 0;
+
+function hexCenter(q, r) {
+  // Returns {lat, lng} of hex center
+  const xM = HEX_R_M * 1.5 * q;
+  const yM = HEX_R_M * SQRT3 * (r + q / 2);
   return {
-    lat: originLat + yM / M_PER_DEG_LAT,
-    lng: originLng + xM / mPerDegLng,
+    lat: OLat + yM / M_PER_DEG_LAT,
+    lng: OLng + xM / mPerDegLng(OLat),
   };
 }
 
-// Convert a geographic point to axial hex coordinates (fractional, then rounded)
-function latLngToHex(lat, lng, originLat, originLng) {
-  const mPerDegLng = M_PER_DEG_LAT * Math.cos(originLat * Math.PI / 180);
-  const xM = (lng - originLng) * mPerDegLng;
-  const yM = (lat - originLat) * M_PER_DEG_LAT;
-  const q  = xM / (HEX_RADIUS_M * 1.5);
-  const r  = yM / (HEX_RADIUS_M * SQRT3) - q / 2;
+function latLngToHex(lat, lng) {
+  const xM = (lng - OLng) * mPerDegLng(OLat);
+  const yM = (lat - OLat) * M_PER_DEG_LAT;
+  const q  = xM / (HEX_R_M * 1.5);
+  const r  = yM / (HEX_R_M * SQRT3) - q / 2;
   return hexRound(q, r);
 }
 
-// Round fractional axial coordinates to the nearest hex
 function hexRound(q, r) {
-  const s  = -q - r;
+  const s = -q - r;
   let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
   const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs - s);
   if (dq > dr && dq > ds) rq = -rr - rs;
@@ -208,10 +175,8 @@ function hexRound(q, r) {
   return { q: rq, r: rr };
 }
 
-// The 6 axial neighbour directions for a flat-top hex grid
 const HEX_DIRS = [
-  { q:1, r:0 }, { q:1, r:-1 }, { q:0, r:-1 },
-  { q:-1, r:0 }, { q:-1, r:1 }, { q:0, r:1 },
+  {q:1,r:0},{q:1,r:-1},{q:0,r:-1},{q:-1,r:0},{q:-1,r:1},{q:0,r:1}
 ];
 
 function hexNeighbours(q, r) {
@@ -220,220 +185,155 @@ function hexNeighbours(q, r) {
 
 function hexKey(q, r) { return `${q},${r}`; }
 
-// Return the 6 corner lat/lngs of hex (q,r) for polygon rendering
-function hexCorners(q, r, originLat, originLng) {
-  const center = hexToLatLng(q, r, originLat, originLng);
-  const mPerDegLng = M_PER_DEG_LAT * Math.cos(originLat * Math.PI / 180);
+// Return the 6 pixel corners of hex (q,r) on the current map canvas
+function hexPixelCorners(q, r) {
+  const c = hexCenter(q, r);
+  const cp = map.latLngToContainerPoint([c.lat, c.lng]);
+  // Pixel radius: convert HEX_R_M to pixels via a reference point
+  const ref = map.latLngToContainerPoint([
+    c.lat + HEX_R_M / M_PER_DEG_LAT, c.lng
+  ]);
+  const rPx = Math.abs(cp.y - ref.y);
   const corners = [];
-  // Flat-top: corners at angles 0°, 60°, 120°, 180°, 240°, 300°
   for (let i = 0; i < 6; i++) {
-    const angle = (Math.PI / 180) * (60 * i);
-    const xM = HEX_RADIUS_M * Math.cos(angle);
-    const yM = HEX_RADIUS_M * Math.sin(angle);
-    corners.push([
-      center.lat + yM / M_PER_DEG_LAT,
-      center.lng + xM / mPerDegLng,
-    ]);
+    const angle = (Math.PI / 180) * (60 * i); // 0°,60°,...,300° for flat-top
+    corners.push({ x: cp.x + rPx * Math.cos(angle), y: cp.y - rPx * Math.sin(angle) });
   }
   return corners;
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-// The hex grid is anchored to a fixed origin. We use (0, 0) lat/lng as the
-// mathematical origin so that the grid is globally consistent — the same hex
-// always covers the same piece of ground regardless of where the user starts.
-const ORIGIN_LAT = 0;
-const ORIGIN_LNG = 0;
-
-let visitedKeys  = new Set(); // Set of "q,r" strings for visited hexes
+let visitedKeys  = new Set();
 let trackingActive = false;
-let gpsWatchId     = null;
-let lastKnownPos   = null;
-let followEnabled  = false;
-let selectMode     = false;
-let metric         = true;
-
-// Leaflet layers for fog hexes
-let fogLayer = null; // L.LayerGroup holding all rendered fog polygons
+let gpsWatchId   = null;
+let lastKnownPos = null;
+let followEnabled = false;
+let selectMode   = false;
+let metric       = true;
+let posMarker    = null;
 
 // ── Persist ───────────────────────────────────────────────────────────────────
 (function load() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const d = JSON.parse(raw);
+    const d = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     if (d.visited) visitedKeys = new Set(d.visited);
     if (d.metric !== undefined) metric = d.metric;
   } catch(e) {}
 })();
 
-function saveStorage() {
+function save() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      visited: [...visitedKeys],
-      metric,
-    }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ visited: [...visitedKeys], metric }));
   } catch(e) {}
 }
 
 // ── Map ───────────────────────────────────────────────────────────────────────
-const map = L.map('map', { center: [40, -20], zoom: 3, zoomControl: false, attributionControl: true });
-
+const map = L.map('map', { center: [40,-20], zoom: 3, zoomControl: false, attributionControl: true });
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',    { maxZoom: 19 }).addTo(map);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', { maxZoom: 19, pane: 'shadowPane' }).addTo(map);
 
-fogLayer = L.layerGroup().addTo(map);
-
 map.on('dragstart', () => { if (!selectMode) setFollow(false); });
-map.on('moveend zoomend', renderFog);
+map.on('move zoom resize viewreset', drawFog);
 map.on('click', onMapClick);
 
-// ── Fog rendering ─────────────────────────────────────────────────────────────
-// We render only hexes that are visible in the current map bounds, plus a buffer.
-// Each hex is a Leaflet Polygon with the appropriate fill opacity.
+// ── Canvas fog ────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('fog-canvas');
+const ctx    = canvas.getContext('2d');
 
-let renderedKeys = new Set(); // keys of hexes currently in fogLayer
+function syncCanvas() {
+  const r = document.getElementById('map').getBoundingClientRect();
+  canvas.width  = r.width;
+  canvas.height = r.height;
+  canvas.style.cssText =
+    `position:absolute;top:${r.top}px;left:${r.left}px;` +
+    `width:${r.width}px;height:${r.height}px;pointer-events:none;z-index:400`;
+}
 
-function renderFog() {
-  const editing = selectMode;
+function drawHexPath(corners) {
+  ctx.beginPath();
+  ctx.moveTo(corners[0].x, corners[0].y);
+  for (let i = 1; i < 6; i++) ctx.lineTo(corners[i].x, corners[i].y);
+  ctx.closePath();
+}
 
-  // Compute which hexes should be visible at mid-fog vs outer-fog
-  // A hex is "clear" if visited.
-  // A hex is "mid" if not visited but adjacent to a visited hex,
-  //   OR if we're in select mode (all unvisited → mid).
-  // Everything else is outer.
+function drawFog() {
+  syncCanvas();
+  const w = canvas.width, h = canvas.height;
 
-  // Build adjacency set once
-  const adjacentKeys = new Set();
+  // 1. Fill entire canvas with outer fog
+  const outerOpacity = selectMode ? FOG_MID : FOG_OUTER;
+  ctx.fillStyle = `rgba(14,14,14,${outerOpacity})`;
+  ctx.fillRect(0, 0, w, h);
+
+  if (visitedKeys.size === 0) return;
+
+  // Build the set of adjacent (mid-fog) hexes
+  const adjKeys = new Set();
   for (const key of visitedKeys) {
     const [q, r] = key.split(',').map(Number);
     for (const n of hexNeighbours(q, r)) {
       const nk = hexKey(n.q, n.r);
-      if (!visitedKeys.has(nk)) adjacentKeys.add(nk);
+      if (!visitedKeys.has(nk)) adjKeys.add(nk);
     }
   }
 
-  // Determine which hexes to render in the viewport
-  const bounds  = map.getBounds().pad(0.3); // pad by 30% for smooth scrolling
-  const hexesToRender = new Map(); // key → opacity
+  // 2. Determine which hexes are in (or near) the viewport
+  const pad = map.getBounds().pad(0.5);
 
-  // For every hex that is visited or adjacent, render it
-  // Also render outer-fog hexes that cover the viewport
-  const visibleHexes = getHexesInBounds(bounds);
+  // 3. Paint mid-fog over adjacent hexes (destination-out won't work directly,
+  //    so we use a two-pass approach on an offscreen canvas)
+  const off = new OffscreenCanvas(w, h);
+  const octx = off.getContext('2d');
 
-  for (const { q, r } of visibleHexes) {
-    const key = hexKey(q, r);
-    if (visitedKeys.has(key)) {
-      // Clear — no polygon needed (map shows through)
-      continue;
-    }
-    if (adjacentKeys.has(key)) {
-      hexesToRender.set(key, FOG_MID);
-    } else {
-      hexesToRender.set(key, editing ? FOG_MID : FOG_OUTER);
+  // Start offscreen with outer fog
+  octx.fillStyle = `rgba(14,14,14,${outerOpacity})`;
+  octx.fillRect(0, 0, w, h);
+
+  // Paint mid-fog hexes (adjacent)
+  if (!selectMode) {
+    octx.fillStyle = `rgba(14,14,14,${FOG_MID})`;
+    for (const key of adjKeys) {
+      const [q, r] = key.split(',').map(Number);
+      const c = hexCenter(q, r);
+      if (!pad.contains([c.lat, c.lng])) continue;
+      const corners = hexPixelCorners(q, r);
+      octx.beginPath();
+      octx.moveTo(corners[0].x, corners[0].y);
+      for (let i = 1; i < 6; i++) octx.lineTo(corners[i].x, corners[i].y);
+      octx.closePath();
+      octx.fill();
     }
   }
 
-  // Diff against what's already rendered to minimise DOM operations
-  const toAdd    = new Map();
-  const toRemove = new Set();
-
-  for (const [key, opacity] of hexesToRender) {
-    if (!renderedKeys.has(key)) toAdd.set(key, opacity);
-  }
-  for (const key of renderedKeys) {
-    if (!hexesToRender.has(key)) toRemove.add(key);
-  }
-
-  // Remove polygons that left the viewport or became clear
-  fogLayer.eachLayer(layer => {
-    if (toRemove.has(layer.options.hexKey)) {
-      fogLayer.removeLayer(layer);
-      renderedKeys.delete(layer.options.hexKey);
-    }
-  });
-
-  // Add new polygons
-  for (const [key, opacity] of toAdd) {
+  // Punch visited hexes fully clear
+  octx.globalCompositeOperation = 'destination-out';
+  octx.fillStyle = 'rgba(0,0,0,1)';
+  for (const key of visitedKeys) {
     const [q, r] = key.split(',').map(Number);
-    const corners = hexCorners(q, r, ORIGIN_LAT, ORIGIN_LNG);
-    const poly = L.polygon(corners, {
-      fillColor:   '#0E0E0E',
-      fillOpacity: opacity,
-      stroke:      false,
-      hexKey:      key,
-    });
-    if (selectMode) {
-      poly.on('click', (e) => { L.DomEvent.stopPropagation(e); toggleHex(q, r); });
-    }
-    fogLayer.addLayer(poly);
-    renderedKeys.add(key);
+    const c = hexCenter(q, r);
+    if (!pad.contains([c.lat, c.lng])) continue;
+    const corners = hexPixelCorners(q, r);
+    octx.beginPath();
+    octx.moveTo(corners[0].x, corners[0].y);
+    for (let i = 1; i < 6; i++) octx.lineTo(corners[i].x, corners[i].y);
+    octx.closePath();
+    octx.fill();
   }
 
-  // Update opacity for hexes whose status changed (e.g. neighbour just got visited)
-  fogLayer.eachLayer(layer => {
-    const key = layer.options.hexKey;
-    if (hexesToRender.has(key)) {
-      const newOpacity = hexesToRender.get(key);
-      if (layer.options.fillOpacity !== newOpacity) {
-        layer.setStyle({ fillOpacity: newOpacity });
-        layer.options.fillOpacity = newOpacity;
-      }
-    }
-  });
-
-  updateStats();
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(off, 0, 0);
 }
 
-// Return all hex grid coordinates whose centers fall within (padded) bounds
-function getHexesInBounds(bounds) {
-  const hexes = [];
-  // Convert bounds corners to hex coordinates and scan the rectangular range
-  const sw = latLngToHex(bounds.getSouth(), bounds.getWest(), ORIGIN_LAT, ORIGIN_LNG);
-  const ne = latLngToHex(bounds.getNorth(), bounds.getEast(), ORIGIN_LAT, ORIGIN_LNG);
-
-  // Add generous padding in hex units to ensure full coverage
-  const pad = 3;
-  for (let q = sw.q - pad; q <= ne.q + pad; q++) {
-    for (let r = ne.r - pad; r <= sw.r + pad; r++) {
-      const center = hexToLatLng(q, r, ORIGIN_LAT, ORIGIN_LNG);
-      if (bounds.contains([center.lat, center.lng])) {
-        hexes.push({ q, r });
-      }
-    }
-  }
-  return hexes;
-}
-
-// Mark a hex as visited (by key string) and refresh
-function visitHex(q, r) {
-  const key = hexKey(q, r);
-  if (visitedKeys.has(key)) return false; // already visited
-  visitedKeys.add(key);
-  saveStorage();
-  renderFog();
-  return true;
-}
-
-// Toggle a hex visited/unvisited (used in Select mode)
-function toggleHex(q, r) {
-  const key = hexKey(q, r);
-  if (visitedKeys.has(key)) visitedKeys.delete(key);
-  else visitedKeys.add(key);
-  saveStorage();
-  renderFog();
-}
-
-// ── GPS tracking ──────────────────────────────────────────────────────────────
+// ── GPS ───────────────────────────────────────────────────────────────────────
 function toggleTracking() { trackingActive ? stopTracking() : startTracking(); }
 
 function startTracking() {
   if (!navigator.geolocation) return;
   trackingActive = true;
   followEnabled  = false;
-  syncFollowButton();
+  syncFollowBtn();
   updateUI();
-  gpsWatchId = navigator.geolocation.watchPosition(onGpsPosition, onGpsError,
+  gpsWatchId = navigator.geolocation.watchPosition(onPosition, onGpsError,
     { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
 }
 
@@ -445,35 +345,29 @@ function stopTracking() {
   if (posMarker) { map.removeLayer(posMarker); posMarker = null; }
   document.getElementById('s-acc-wrap').style.display = 'none';
   document.getElementById('follow-btn').style.display = 'none';
-  saveStorage();
-  updateUI();
-  renderFog();
+  save(); updateUI(); drawFog();
 }
 
-let posMarker = null;
-
-function onGpsPosition(pos) {
+function onPosition(pos) {
   const { latitude: lat, longitude: lng, accuracy: acc } = pos.coords;
 
-  // Accuracy display
-  const accEl = document.getElementById('s-acc');
-  accEl.textContent = metric ? `±${Math.round(acc)} m` : `±${Math.round(acc * 3.281)} ft`;
-  accEl.className   = 'stat-val ' + (acc < 50 ? 'good' : acc < 100 ? 'warn' : 'bad');
+  const el = document.getElementById('s-acc');
+  el.textContent = metric ? `±${Math.round(acc)} m` : `±${Math.round(acc*3.281)} ft`;
+  el.className   = 'stat-val ' + (acc < 50 ? 'good' : acc < 100 ? 'warn' : 'bad');
   document.getElementById('s-acc-wrap').style.display = 'flex';
 
-  // Blue dot
   lastKnownPos = { lat, lng };
   updateBlueDot(lat, lng);
+  if (followEnabled) map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.5 });
 
-  if (followEnabled) {
-    map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.5 });
-  }
-
-  // Only reveal hex if accuracy is sufficient
   if (acc >= MAX_ACCURACY_M) return;
 
-  const { q, r } = latLngToHex(lat, lng, ORIGIN_LAT, ORIGIN_LNG);
-  visitHex(q, r);
+  const { q, r } = latLngToHex(lat, lng);
+  const key = hexKey(q, r);
+  if (!visitedKeys.has(key)) {
+    visitedKeys.add(key);
+    save(); updateStats(); drawFog();
+  }
 }
 
 function onGpsError() { stopTracking(); }
@@ -482,7 +376,7 @@ function updateBlueDot(lat, lng) {
   const icon = L.divIcon({
     className: '',
     html: `<div style="width:14px;height:14px;border-radius:50%;background:#00A0E0;border:3px solid #F0F0F0;box-shadow:0 0 0 4px rgba(0,160,224,0.25)"></div>`,
-    iconAnchor: [7, 7],
+    iconAnchor: [7,7],
   });
   if (posMarker) posMarker.setLatLng([lat, lng]);
   else posMarker = L.marker([lat, lng], { icon, zIndexOffset: 2000 }).addTo(map);
@@ -490,30 +384,18 @@ function updateBlueDot(lat, lng) {
 
 // ── Select mode ───────────────────────────────────────────────────────────────
 function selectBtnAction() {
-  selectMode ? exitSelectMode() : enterSelectMode();
-}
-
-function enterSelectMode() {
-  selectMode = true;
+  selectMode = !selectMode;
   updateUI();
-  // Re-render so all unvisited hexes become tappable at mid-opacity
-  fogLayer.clearLayers();
-  renderedKeys.clear();
-  renderFog();
-}
-
-function exitSelectMode() {
-  selectMode = false;
-  updateUI();
-  fogLayer.clearLayers();
-  renderedKeys.clear();
-  renderFog();
+  drawFog();
 }
 
 function onMapClick(e) {
   if (!selectMode) return;
-  const { q, r } = latLngToHex(e.latlng.lat, e.latlng.lng, ORIGIN_LAT, ORIGIN_LNG);
-  toggleHex(q, r);
+  const { q, r } = latLngToHex(e.latlng.lat, e.latlng.lng);
+  const key = hexKey(q, r);
+  if (visitedKeys.has(key)) visitedKeys.delete(key);
+  else visitedKeys.add(key);
+  save(); updateStats(); drawFog();
 }
 
 // ── Menu ──────────────────────────────────────────────────────────────────────
@@ -524,22 +406,16 @@ function openMenu() {
     metric ? 'Use imperial units' : 'Use metric units';
   document.getElementById('menu-overlay').classList.add('open');
 }
-function closeMenu() {
-  document.getElementById('menu-overlay').classList.remove('open');
-}
+function closeMenu() { document.getElementById('menu-overlay').classList.remove('open'); }
 function onOverlayClick(e) {
   if (e.target === document.getElementById('menu-overlay')) closeMenu();
 }
 function menuSave() {
   closeMenu();
-  const a = Object.assign(document.createElement('a'), {
-    href: URL.createObjectURL(new Blob(
-      [JSON.stringify({ version: 1, visited: [...visitedKeys] })],
-      { type: 'application/json' }
-    )),
-    download: 'explore-data.json',
-  });
-  a.click();
+  const blob = new Blob([JSON.stringify({ version: 1, visited: [...visitedKeys] })],
+    { type: 'application/json' });
+  Object.assign(document.createElement('a'),
+    { href: URL.createObjectURL(blob), download: 'explore-data.json' }).click();
 }
 function menuLoad(e) {
   const file = e.target.files[0]; if (!file) return;
@@ -547,13 +423,7 @@ function menuLoad(e) {
   reader.onload = ev => {
     try {
       const d = JSON.parse(ev.target.result);
-      if (d.visited) {
-        visitedKeys = new Set(d.visited);
-        saveStorage();
-        fogLayer.clearLayers();
-        renderedKeys.clear();
-        renderFog();
-      }
+      if (d.visited) { visitedKeys = new Set(d.visited); save(); updateStats(); drawFog(); }
     } catch(err) {}
   };
   reader.readAsText(file);
@@ -564,82 +434,69 @@ function toggleUnits() {
   metric = !metric;
   document.getElementById('units-btn').textContent =
     metric ? 'Use imperial units' : 'Use metric units';
-  saveStorage();
-  updateStats();
+  save(); updateStats();
 }
 function menuClear() {
   if (!confirm('Clear all data?')) return;
   if (trackingActive) stopTracking();
-  if (selectMode) exitSelectMode();
+  selectMode = false;
   visitedKeys.clear();
-  saveStorage();
-  fogLayer.clearLayers();
-  renderedKeys.clear();
-  renderFog();
+  save(); updateUI(); updateStats(); drawFog();
   closeMenu();
 }
 
 // ── Follow ────────────────────────────────────────────────────────────────────
-function syncFollowButton() {
+function syncFollowBtn() {
   const btn = document.getElementById('follow-btn');
   btn.textContent = followEnabled ? 'Following' : 'Follow';
   btn.classList.toggle('active', followEnabled);
 }
 function setFollow(val) {
   followEnabled = val;
-  syncFollowButton();
-  if (val && lastKnownPos) {
-    map.setView([lastKnownPos.lat, lastKnownPos.lng], DEFAULT_ZOOM,
-      { animate: true, duration: 0.5 });
-  }
+  syncFollowBtn();
+  if (val && lastKnownPos)
+    map.setView([lastKnownPos.lat, lastKnownPos.lng], DEFAULT_ZOOM, { animate: true, duration: 0.5 });
 }
 function toggleFollow() { setFollow(!followEnabled); }
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 function updateUI() {
-  const mainBtn   = document.getElementById('main-btn');
-  const menuBtn   = document.getElementById('menu-btn');
-  const selectBtn = document.getElementById('select-btn');
-  const followBtn = document.getElementById('follow-btn');
-
+  const mainBtn = document.getElementById('main-btn');
   mainBtn.textContent = trackingActive ? 'Stop tracking' : 'Use location';
   mainBtn.className   = trackingActive ? 'tracking' : '';
-  mainBtn.disabled    = false;
 
-  menuBtn.textContent = 'Menu';
-  selectBtn.textContent = selectMode ? 'Done' : 'Select';
-  selectBtn.classList.toggle('active', selectMode);
+  const selBtn = document.getElementById('select-btn');
+  selBtn.textContent = selectMode ? 'Done' : 'Select';
+  selBtn.classList.toggle('active', selectMode);
 
-  followBtn.style.display = trackingActive ? 'block' : 'none';
-  syncFollowButton();
+  document.getElementById('follow-btn').style.display = trackingActive ? 'block' : 'none';
+  syncFollowBtn();
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
-// Hex area: (3√3/2) × r² where r is the circumradius (center-to-corner)
-const HEX_AREA_M2 = (3 * SQRT3 / 2) * HEX_RADIUS_M * HEX_RADIUS_M;
-
 function updateStats() {
   document.getElementById('s-hexes').textContent = visitedKeys.size.toLocaleString();
-  document.getElementById('s-area').textContent  = fmtArea(visitedKeys.size * HEX_AREA_M2);
+  const sqm = visitedKeys.size * HEX_AREA_M2;
+  document.getElementById('s-area').textContent = fmtArea(sqm);
 }
 
 function fmtArea(sqm) {
   if (metric) {
-    if (sqm >= 1e6) return `${(sqm / 1e6).toFixed(2)} km²`;
-    if (sqm >= 1e4) return `${(sqm / 1e4).toFixed(1)} ha`;
+    if (sqm >= 1e6) return `${(sqm/1e6).toFixed(2)} km²`;
+    if (sqm >= 1e4) return `${(sqm/1e4).toFixed(1)} ha`;
     return `${Math.round(sqm)} m²`;
   }
   const sqft = sqm * 10.764;
-  if (sqft >= 27878400) return `${(sqft / 27878400).toFixed(2)} mi²`;
-  if (sqft >= 43560)    return `${(sqft / 43560).toFixed(1)} ac`;
+  if (sqft >= 27878400) return `${(sqft/27878400).toFixed(2)} mi²`;
+  if (sqft >= 43560)    return `${(sqft/43560).toFixed(1)} ac`;
   return `${Math.round(sqft)} ft²`;
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 updateUI();
 updateStats();
-window.addEventListener('resize', () => { fogLayer.clearLayers(); renderedKeys.clear(); renderFog(); });
-setTimeout(renderFog, 400);
+window.addEventListener('resize', drawFog);
+setTimeout(drawFog, 300);
 </script>
 </body>
 </html>
