@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="apple-mobile-web-app-title" content="Hexploration">
+<meta name="apple-mobile-web-app-title" content="Hexplore">
 <meta name="theme-color" content="#101010">
-<title>Hexploration</title>
+<title>Hexplore</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
@@ -368,7 +368,7 @@ let hasSnappedToUser = false;   // whether we've auto-centred this session
 /* ===========================================================
    STORAGE
 =========================================================== */
-const STORAGE_KEY = 'hexploration_v1';
+const STORAGE_KEY = 'hexplore_v1';
 
 function saveRevealedHexes() {
   try {
@@ -451,25 +451,26 @@ function drawFog() {
   const borderOpacity = 0.5;
   const borders = getBorderHexes();
 
-  let fogPath = WORLD_RECT;
+  // Compute each hex's screen path once per frame, even though it's
+  // needed in two places below (the fog layer's holes, and the
+  // border layer's fill) — projecting hex corners involves a Leaflet
+  // projection call per hex, which adds up during a drag if repeated.
+  const revealedPaths = [];
   for (const key of revealedHexes) {
     const { q, r } = parseHexKey(key);
-    fogPath += hexSvgPath(q, r) + ' ';
+    revealedPaths.push(hexSvgPath(q, r));
   }
+  const borderPaths = [];
   for (const key of borders) {
     const { q, r } = parseHexKey(key);
-    fogPath += hexSvgPath(q, r) + ' ';
+    borderPaths.push(hexSvgPath(q, r));
   }
-  fogLayer.setAttribute('fill-opacity', String(fogOpacity));
-  fogLayer.setAttribute('d', fogPath);
 
-  let borderPath = '';
-  for (const key of borders) {
-    const { q, r } = parseHexKey(key);
-    borderPath += hexSvgPath(q, r) + ' ';
-  }
+  fogLayer.setAttribute('fill-opacity', String(fogOpacity));
+  fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
+
   borderLayer.setAttribute('fill-opacity', String(borderOpacity));
-  borderLayer.setAttribute('d', borderPath || 'M 0 0 Z');
+  borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
 }
 
 /* ===========================================================
@@ -647,7 +648,7 @@ document.getElementById('menu-save').addEventListener('click', () => {
   const url  = URL.createObjectURL(blob);
   const link = Object.assign(document.createElement('a'), {
     href: url,
-    download: `hexploration-${new Date().toISOString().slice(0, 10)}.json`,
+    download: `hexplore-${new Date().toISOString().slice(0, 10)}.json`,
   });
   document.body.appendChild(link);
   link.click();
@@ -691,6 +692,11 @@ document.getElementById('menu-clear').addEventListener('click', () => {
 /* ===========================================================
    CLEAR DATA CONFIRMATION
 =========================================================== */
+document.getElementById('confirm-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'confirm-overlay') {
+    document.getElementById('confirm-overlay').classList.remove('open');
+  }
+});
 document.getElementById('confirm-cancel').addEventListener('click', () => {
   document.getElementById('confirm-overlay').classList.remove('open');
 });
