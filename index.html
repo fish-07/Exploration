@@ -176,18 +176,19 @@
    ─────────────────────────────────────────────────────────
    Leaflet's default CRS (EPSG:3857 / Web Mercator) maps the
    whole world to a 256×256 px square at zoom 0, and doubles
-   in size each zoom level. map.project(latlng, zoom) gives
-   pixel coordinates at any zoom; multiplying zoom-0 pixel
-   coords by 2^zoom gives the pixel coords at that zoom.
+   in size each zoom level.
 
    KEY IDEA: define the hex grid directly in zoom-0 pixel
    units (a fixed, latitude-independent Cartesian plane).
    Because it's already a flat pixel plane, every hex is
    automatically THE SAME SCREEN SIZE at a given zoom level,
-   everywhere on the map — exactly matching how Mercator
-   itself displays the world (Greenland looks huge, Africa
-   looks "smaller than it should", and so do our hexes,
-   consistently).
+   everywhere on the map.
+
+   CALIBRATION: the hex should be exactly 100 m corner-to-corner
+   (circumradius = 50 m) AT THE 35°N PARALLEL. Mercator's
+   pixel-per-metre ratio varies with latitude (it's the same in
+   x and y at any given point, scaled by 1/cos(lat)), so we
+   compute that ratio at lat=35° to size R0.
 
    FLAT-TOP hexagons (point left/right, flat edge top/bottom):
      mx = R·1.5·q
@@ -195,27 +196,26 @@
    Inverse:
      q  = mx·2/(3R)
      r  = my/(R√3) − q/2
-   (this is the standard axial layout with q/r swapped
-   relative to pointy-top, giving flat-top orientation)
 ═══════════════════════════════════════════════════════════ */
 
-// Circumradius in zoom-0 Mercator pixels, chosen so hexes are
-// ~100m wide at a typical mid-latitude at a reasonable zoom.
-// World is 256px wide at zoom 0 for 360°, so px/degree at
-// equator, zoom Z: (256 * 2^Z) / 360. At equator 1° lng ≈ 111320m.
-// We pick R0 (zoom-0 px) so that at zoom 17 (typical walking zoom)
-// the hex is ~50px circumradius (~100m wide), matching real-world
-// scale at the equator. This is a fixed visual size at all latitudes.
-const Z_REF   = 17;                         // reference zoom for sizing
-const MPD     = 111320;                     // metres/degree at equator
-const TARGET_HEX_METRES = 100;              // desired flat-to-flat width at equator, Z_REF
-const pxPerDegAtZref = (256 * Math.pow(2, Z_REF)) / 360;
-const pxPerMetreAtZref = pxPerDegAtZref / MPD;
-const R_PX_AT_ZREF = (TARGET_HEX_METRES / Math.sqrt(3)) * pxPerMetreAtZref; // circumradius in px at Z_REF
-const R0 = R_PX_AT_ZREF / Math.pow(2, Z_REF); // circumradius in zoom-0 px (constant)
+const CAL_LAT = 35;                          // calibration latitude (°N)
+const MPD     = 111320;                      // metres per degree longitude at equator
+const TARGET_HEX_METRES = 100;               // desired corner-to-corner width at CAL_LAT
+
+// Web Mercator pixels-per-metre at zoom 0, at a given latitude:
+// world width = 256px for 360° of longitude → px/deg(lng) = 256/360 (constant, all latitudes)
+// px/metre(lng) = (256/360) / MPD  — this is also the LOCAL px/metre in the
+// y-direction at that latitude, because Web Mercator is conformal
+// (equal scale in x and y at every point), scaled by 1/cos(lat).
+const pxPerDegLngAtZ0 = 256 / 360;
+const pxPerMetreAtEquatorZ0 = pxPerDegLngAtZ0 / MPD;
+const pxPerMetreAtCalLatZ0  = pxPerMetreAtEquatorZ0 / Math.cos(CAL_LAT * Math.PI / 180);
+
+// Circumradius (R0) in zoom-0 pixels, calibrated so the hex is
+// TARGET_HEX_METRES wide (corner-to-corner = 2R) at CAL_LAT.
+const R0 = (TARGET_HEX_METRES / 2) * pxPerMetreAtCalLatZ0;
 
 function ll2zoom0px(lat, lng) {
-  // Leaflet's project() takes a zoom argument directly
   const p = map.project(L.latLng(lat, lng), 0);
   return { mx: p.x, my: p.y };
 }
@@ -300,18 +300,23 @@ load();
 
 /* ═══════════════════════════════════════════════════════════
    PIXEL-SPACE HEX CORNERS (screen pixels at current zoom)
-   Since the grid lives in zoom-0 pixel space, current-zoom
-   screen pixels = zoom0px * 2^zoom, then translated by the
-   map's current pixel origin. We use map.project(latlng,zoom)
-   indirectly via containerPoint on the unprojected lat/lng —
-   simplest: convert axial → zoom0 px → scale by 2^zoom →
-   convert that absolute pixel to a container point using the
-   map's pixel origin.
+   ─────────────────────────────────────────────────────────
+   IMPORTANT: we must use map.latLngToContainerPoint() to find
+   each hex's screen position, NOT manual pixelOrigin arithmetic.
+   Leaflet updates latLngToContainerPoint continuously during
+   active drag/zoom gestures (it accounts for the live CSS
+   transform on the map pane), whereas map.getPixelOrigin()
+   only updates once a gesture ends — using it mid-drag causes
+   the hex overlay to lag behind or move the wrong direction
+   relative to the map tiles.
+
+   The hex's on-screen RADIUS still uses the fixed R0 * 2^zoom
+   formula so every hex stays exactly the same pixel size at a
+   given zoom level, everywhere on the map.
 ═══════════════════════════════════════════════════════════ */
-// Convert an absolute Mercator pixel (at current zoom) to a container point
-function containerPointFromAbs(absPt) {
-  const origin = map.getPixelOrigin();
-  return L.point(absPt.x - origin.x, absPt.y - origin.y);
+function hexCenterContainerPt(q, r) {
+  const ll = ax2ll(q, r);
+  return map.latLngToContainerPoint(ll);
 }
 
 function hexCornersFromContainerCentre(c) {
@@ -331,9 +336,7 @@ function pxToPd(pts) {
 }
 
 function hexPathD(q, r) {
-  const {mx,my} = ax2px0(q,r);
-  const scale   = Math.pow(2, map.getZoom());
-  const c       = containerPointFromAbs(L.point(mx*scale, my*scale));
+  const c = hexCenterContainerPt(q, r);
   return pxToPd(hexCornersFromContainerCentre(c));
 }
 
