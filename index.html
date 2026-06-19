@@ -20,29 +20,23 @@
     --safe-t:  env(safe-area-inset-top, 0px);
     --safe-b:  env(safe-area-inset-bottom, 0px);
   }
-  html {
-    /* Prevents the white flash / rubber-band reveal on iOS */
-    background: #101010;
-  }
+  html { background: #101010; }
   body {
     width: 100%; height: 100%; overflow: hidden;
     background: var(--bg);
     font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
     color: var(--text);
     user-select: none; -webkit-user-select: none;
-    /* Push content down so status bar area is filled with our bg colour */
     padding-top: var(--safe-t);
   }
   #map {
     position: fixed;
-    top: var(--safe-t);
-    left: 0; right: 0;
+    top: var(--safe-t); left: 0; right: 0;
     bottom: calc(var(--bar-h, 140px) + var(--safe-b));
   }
   #fog-svg {
     position: fixed;
-    top: var(--safe-t);
-    left: 0; right: 0;
+    top: var(--safe-t); left: 0; right: 0;
     bottom: calc(var(--bar-h, 140px) + var(--safe-b));
     pointer-events: none;
     z-index: 450;
@@ -56,7 +50,6 @@
     border-top: 1px solid var(--muted);
     display: flex; flex-direction: column; align-items: center;
     padding: 12px 14px 0;
-    /* Generous clearance above home indicator */
     padding-bottom: max(36px, calc(var(--safe-b) + 16px));
     gap: 10px;
     z-index: 500;
@@ -131,7 +124,6 @@
   #confirm-cancel { background: var(--muted); color: var(--text); }
   #confirm-ok     { background: var(--danger); color: #fff; }
 
-  /* Leaflet attribution — keep it visible */
   .leaflet-control-attribution {
     background: rgba(16,16,16,0.7) !important;
     color: #aaa !important;
@@ -180,30 +172,59 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════
-   HEX MATH  —  equirectangular grid
+   HEX GRID — defined in fixed Mercator-pixel space (zoom 0)
    ─────────────────────────────────────────────────────────
-   The map uses L.CRS.EPSG4326 (equirectangular / Plate Carrée).
-   In this projection, x pixels ∝ longitude, y pixels ∝ latitude,
-   uniformly at all latitudes.  This means our hex grid defined
-   as (mx = lng * MPD, my = lat * MPD) maps perfectly to the
-   screen — hexes tile without overlap or gap anywhere on Earth.
+   Leaflet's default CRS (EPSG:3857 / Web Mercator) maps the
+   whole world to a 256×256 px square at zoom 0, and doubles
+   in size each zoom level. map.project(latlng, zoom) gives
+   pixel coordinates at any zoom; multiplying zoom-0 pixel
+   coords by 2^zoom gives the pixel coords at that zoom.
 
-   Pointy-top axial:
-     mx = R√3·(q + r/2)    my = R·1.5·r
+   KEY IDEA: define the hex grid directly in zoom-0 pixel
+   units (a fixed, latitude-independent Cartesian plane).
+   Because it's already a flat pixel plane, every hex is
+   automatically THE SAME SCREEN SIZE at a given zoom level,
+   everywhere on the map — exactly matching how Mercator
+   itself displays the world (Greenland looks huge, Africa
+   looks "smaller than it should", and so do our hexes,
+   consistently).
+
+   FLAT-TOP hexagons (point left/right, flat edge top/bottom):
+     mx = R·1.5·q
+     my = R√3·(r + q/2)
    Inverse:
-     r  = my·2/(3R)         q  = mx/(R√3) − r/2
-
-   R = 50 in "equirectangular metres" (= degrees × MPD).
-   This makes each hex ~100 m corner-to-corner at the equator
-   and the grid consistent everywhere.
+     q  = mx·2/(3R)
+     r  = my/(R√3) − q/2
+   (this is the standard axial layout with q/r swapped
+   relative to pointy-top, giving flat-top orientation)
 ═══════════════════════════════════════════════════════════ */
-const R_DEG = 50;
-const MPD   = 111320;
 
-function ll2m(lat, lng)  { return { mx: lng * MPD, my: lat * MPD }; }
-function m2fax(mx, my)   {
-  const fr = my * 2 / (3 * R_DEG);
-  return { fq: mx / (Math.sqrt(3) * R_DEG) - fr / 2, fr };
+// Circumradius in zoom-0 Mercator pixels, chosen so hexes are
+// ~100m wide at a typical mid-latitude at a reasonable zoom.
+// World is 256px wide at zoom 0 for 360°, so px/degree at
+// equator, zoom Z: (256 * 2^Z) / 360. At equator 1° lng ≈ 111320m.
+// We pick R0 (zoom-0 px) so that at zoom 17 (typical walking zoom)
+// the hex is ~50px circumradius (~100m wide), matching real-world
+// scale at the equator. This is a fixed visual size at all latitudes.
+const Z_REF   = 17;                         // reference zoom for sizing
+const MPD     = 111320;                     // metres/degree at equator
+const TARGET_HEX_METRES = 100;              // desired flat-to-flat width at equator, Z_REF
+const pxPerDegAtZref = (256 * Math.pow(2, Z_REF)) / 360;
+const pxPerMetreAtZref = pxPerDegAtZref / MPD;
+const R_PX_AT_ZREF = (TARGET_HEX_METRES / Math.sqrt(3)) * pxPerMetreAtZref; // circumradius in px at Z_REF
+const R0 = R_PX_AT_ZREF / Math.pow(2, Z_REF); // circumradius in zoom-0 px (constant)
+
+function ll2zoom0px(lat, lng) {
+  // Leaflet's project() takes a zoom argument directly
+  const p = map.project(L.latLng(lat, lng), 0);
+  return { mx: p.x, my: p.y };
+}
+
+// Flat-top axial from zoom-0 pixel coords
+function m2fax(mx, my) {
+  const fq = mx * 2 / (3 * R0);
+  const fr = my / (Math.sqrt(3) * R0) - fq / 2;
+  return { fq, fr };
 }
 function axRound(fq, fr) {
   const fs = -fq - fr;
@@ -214,89 +235,45 @@ function axRound(fq, fr) {
   return { q, r };
 }
 function ll2key(lat, lng) {
-  const {mx,my} = ll2m(lat,lng);
+  const {mx,my} = ll2zoom0px(lat,lng);
   const {fq,fr} = m2fax(mx,my);
   const {q,r}   = axRound(fq,fr);
   return `${q},${r}`;
 }
+
+// Axial → zoom-0 pixel centre
+function ax2px0(q, r) {
+  return { mx: R0*1.5*q, my: R0*Math.sqrt(3)*(r+q/2) };
+}
+// Axial → LatLng (for placing markers etc, rarely needed)
 function ax2ll(q, r) {
-  return { lat: (R_DEG*1.5*r) / MPD, lng: (R_DEG*Math.sqrt(3)*(q+r/2)) / MPD };
-}
-
-/* ─────────────────────────────────────────────────────────
-   PIXEL-SPACE HEX CORNERS
-   Because the map is equirectangular, pixels ∝ degrees in
-   both x and y uniformly.  We compute a single px/unit scale
-   factor and place corners at exactly that radius, producing
-   perfect equilateral hexagons at every zoom and latitude.
-───────────────────────────────────────────────────────── */
-let _pxPerUnit = 1;
-
-function updatePxScale() {
-  // Sample pixel distance for R_DEG units northward at map centre
-  const c  = map.getCenter();
-  const p0 = map.latLngToContainerPoint(L.latLng(c.lat, c.lng));
-  const p1 = map.latLngToContainerPoint(L.latLng(c.lat + R_DEG / MPD, c.lng));
-  _pxPerUnit = Math.abs(p1.y - p0.y) / R_DEG;
-}
-
-function pxR() { return _pxPerUnit * R_DEG; }
-
-function hexCornersPx(q, r) {
-  const {lat,lng} = ax2ll(q,r);
-  const c   = map.latLngToContainerPoint(L.latLng(lat,lng));
-  const rad = pxR();
-  const pts = [];
-  for (let i = 0; i < 6; i++) {
-    const ang = Math.PI/2 - i*(Math.PI/3); // pointy-top, first corner at top
-    pts.push({ x: c.x + rad*Math.cos(ang), y: c.y - rad*Math.sin(ang) });
-  }
-  return pts;
-}
-
-function pxToPd(pts) {
-  return 'M ' + pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
+  const {mx,my} = ax2px0(q,r);
+  return map.unproject(L.point(mx,my), 0);
 }
 
 function nbrs(q, r) {
   return [[q+1,r],[q-1,r],[q,r+1],[q,r-1],[q+1,r-1],[q-1,r+1]];
 }
-function hk(q,r)      { return `${q},${r}`; }
-function parseKey(k)  { const [q,r]=k.split(',').map(Number); return {q,r}; }
+function hk(q,r)     { return `${q},${r}`; }
+function parseKey(k) { const [q,r]=k.split(',').map(Number); return {q,r}; }
 
 /* ═══════════════════════════════════════════════════════════
-   MAP  —  EPSG:4326 equirectangular
+   MAP — standard Web Mercator with OSM street tiles
 ═══════════════════════════════════════════════════════════ */
 const map = L.map('map', {
-  crs: L.CRS.EPSG4326,
-  center: [20, 0],
-  zoom: 3,
-  zoomControl: false,
-  attributionControl: true,
+  center: [20, 0], zoom: 3,
+  zoomControl: false, attributionControl: true,
 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 19,
+}).addTo(map);
 
-// ESRI World Imagery tiles in EPSG:4326
-// Zoom offset: EPSG:4326 zoom N ≈ Mercator zoom N-1 visually
-L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  {
-    attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
-    maxZoom: 18,
-    // EPSG:4326 needs tileSize 512 and zoomOffset to align correctly
-    tileSize: 512,
-    zoomOffset: -1,
-  }
-).addTo(map);
-
-/* Bar height → CSS var so map/svg bottom edge stays in sync */
 function syncBarHeight() {
   const h = document.getElementById('bar').getBoundingClientRect().height;
-  document.documentElement.style.setProperty('--bar-h', h + 'px');
+  document.documentElement.style.setProperty('--bar-h', h+'px');
 }
-
-/* SVG pixel size must match its rendered CSS size exactly */
 function syncSvgSize() {
-  const el   = document.getElementById('fog-svg');
+  const el = document.getElementById('fog-svg');
   const rect = el.getBoundingClientRect();
   el.setAttribute('width',  Math.ceil(rect.width));
   el.setAttribute('height', Math.ceil(rect.height));
@@ -322,27 +299,59 @@ function load()  { try { const d=localStorage.getItem(SK); if(d) revealed=new Se
 load();
 
 /* ═══════════════════════════════════════════════════════════
+   PIXEL-SPACE HEX CORNERS (screen pixels at current zoom)
+   Since the grid lives in zoom-0 pixel space, current-zoom
+   screen pixels = zoom0px * 2^zoom, then translated by the
+   map's current pixel origin. We use map.project(latlng,zoom)
+   indirectly via containerPoint on the unprojected lat/lng —
+   simplest: convert axial → zoom0 px → scale by 2^zoom →
+   convert that absolute pixel to a container point using the
+   map's pixel origin.
+═══════════════════════════════════════════════════════════ */
+// Convert an absolute Mercator pixel (at current zoom) to a container point
+function containerPointFromAbs(absPt) {
+  const origin = map.getPixelOrigin();
+  return L.point(absPt.x - origin.x, absPt.y - origin.y);
+}
+
+function hexCornersFromContainerCentre(c) {
+  const scale = Math.pow(2, map.getZoom());
+  const rad   = R0 * scale;
+  const pts = [];
+  for (let i=0; i<6; i++) {
+    // Flat-top: corners at 0°,60°,120°,180°,240°,300°
+    const ang = i * (Math.PI/3);
+    pts.push({ x: c.x + rad*Math.cos(ang), y: c.y + rad*Math.sin(ang) });
+  }
+  return pts;
+}
+
+function pxToPd(pts) {
+  return 'M ' + pts.map(p=>`${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
+}
+
+function hexPathD(q, r) {
+  const {mx,my} = ax2px0(q,r);
+  const scale   = Math.pow(2, map.getZoom());
+  const c       = containerPointFromAbs(L.point(mx*scale, my*scale));
+  return pxToPd(hexCornersFromContainerCentre(c));
+}
+
+/* ═══════════════════════════════════════════════════════════
    FOG SVG RENDERER
    ─────────────────────────────────────────────────────────
-   Three non-overlapping layers, each hex covered by exactly one:
-
-   Layer A  fill-opacity=fogOp   world rect, evenodd holes = revealed ∪ borders
-            → "deep fog" everywhere except revealed and border hexes
-
-   Layer B  fill-opacity=borderOp  filled union of border hexes only
-            → border hexes at exactly borderOp
-
-   revealed hexes: covered by neither → 0 opacity ✓
-   border hexes:   Layer A has a hole, Layer B fills them → borderOp ✓
-   other hexes:    Layer A covers them → fogOp ✓
+   Two non-overlapping layers, each hex covered by exactly one:
+   Layer A: fogOp, world rect minus (revealed ∪ borders)
+   Layer B: borderOp, union of border hexes only
+   No stroked outlines at all — the opacity step itself defines
+   the visible boundary, so there's no seam between two
+   fully-revealed (0%-opacity) hexes.
 ═══════════════════════════════════════════════════════════ */
 const fogSvg = document.getElementById('fog-svg');
 const NS = 'http://www.w3.org/2000/svg';
 
-let svgFogPath    = null;
-let svgBorderPath = null;
-let svgOutlines   = [];
-let borderCache   = null;
+let svgFogPath = null, svgBorderPath = null;
+let borderCache = null;
 
 function getBorders() {
   if (borderCache) return borderCache;
@@ -364,16 +373,15 @@ function buildEvenOddPath(holeKeys) {
   let d = WORLD;
   for (const k of holeKeys) {
     const {q,r} = parseKey(k);
-    d += pxToPd(hexCornersPx(q,r)) + ' ';
+    d += hexPathD(q,r) + ' ';
   }
   return d;
 }
-
 function buildHexUnion(keys) {
   let d = '';
   for (const k of keys) {
     const {q,r} = parseKey(k);
-    d += pxToPd(hexCornersPx(q,r)) + ' ';
+    d += hexPathD(q,r) + ' ';
   }
   return d || 'M 0 0 Z';
 }
@@ -394,31 +402,10 @@ function ensureSvgElements() {
   }
 }
 
-function syncOutlines(keys) {
-  const arr = [...keys];
-  while (svgOutlines.length < arr.length) {
-    const p = document.createElementNS(NS,'path');
-    p.setAttribute('fill','none');
-    p.setAttribute('stroke','#404040');
-    p.setAttribute('stroke-width','0.8');
-    p.setAttribute('stroke-opacity','0.7');
-    p.setAttribute('pointer-events','none');
-    fogSvg.appendChild(p);
-    svgOutlines.push(p);
-  }
-  for (let i=0;i<arr.length;i++) {
-    const {q,r} = parseKey(arr[i]);
-    svgOutlines[i].setAttribute('d', pxToPd(hexCornersPx(q,r)));
-    svgOutlines[i].style.display = '';
-  }
-  for (let i=arr.length;i<svgOutlines.length;i++) svgOutlines[i].style.display='none';
-}
-
 function redrawFog() { invalidateBorders(); drawFog(); }
 
 function drawFog() {
   ensureSvgElements();
-  updatePxScale();
 
   const fogOp    = selectMode ? 0.5 : 0.95;
   const borderOp = 0.5;
@@ -429,8 +416,6 @@ function drawFog() {
 
   svgBorderPath.setAttribute('fill-opacity', String(borderOp));
   svgBorderPath.setAttribute('d', buildHexUnion(borders));
-
-  syncOutlines(new Set([...revealed,...borders]));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -438,7 +423,6 @@ function drawFog() {
 ═══════════════════════════════════════════════════════════ */
 map.on('move zoom viewreset', drawFog);
 
-// Select-mode taps via Leaflet click (fired only after confirmed non-drag)
 map.on('click', (e) => {
   if (!selectMode) return;
   onHexClick(ll2key(e.latlng.lat, e.latlng.lng));
@@ -475,8 +459,7 @@ function onPosUpdate(pos) {
   userLL = {lat,lng}; userAcc = acc;
   if (!hasSnapped) {
     hasSnapped = true;
-    // zoom 17 in EPSG:4326 ≈ zoom 16 in Mercator
-    map.setView([lat,lng], 17, {animate:false});
+    map.setView([lat,lng], 16, {animate:false});
   }
   if (!userMarker) userMarker = L.marker([lat,lng],{icon:userIcon,zIndexOffset:1000}).addTo(map);
   else             userMarker.setLatLng([lat,lng]);
@@ -485,6 +468,7 @@ function onPosUpdate(pos) {
   } else {
     userCircle.setLatLng([lat,lng]).setRadius(acc);
   }
+  // 100m REAL-WORLD accuracy threshold — independent of hex visual size
   if (acc < 100) {
     const key = ll2key(lat,lng);
     if (!revealed.has(key)) { revealed.add(key); store(); redrawFog(); }
