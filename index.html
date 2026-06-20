@@ -11,127 +11,145 @@
 <meta name="theme-color" content="#101010">
 <title>Hexplore</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
-  :root {
-    --bg:      #101010;
-    --surface: #202020;
-    --muted:   #404040;
-    --text:    #fff;
-    --accent:  #00a0e0;
-    --danger:  #c00000;
-    --safe-t:  env(safe-area-inset-top, 0px);
-    --safe-b:  env(safe-area-inset-bottom, 0px);
-    --safe-l:  env(safe-area-inset-left, 0px);
-    --safe-r:  env(safe-area-inset-right, 0px);
-  }
+:root {
+--bg: #101010;
+--surface: #202020;
+--muted: #404040;
+--text: #fff;
+--accent: #00a0e0;
+--danger: #c00000;
+--safe-t: env(safe-area-inset-top, 0px);
+--safe-b: env(safe-area-inset-bottom, 0px);
+--safe-l: env(safe-area-inset-left, 0px);
+--safe-r: env(safe-area-inset-right, 0px);
+}
 
-  html { background: #101010; }
+html { background: #101010; }
 
-  body {
-    width: 100%; height: 100%; overflow: hidden;
-    background: var(--bg);
-    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-    color: var(--text);
-    user-select: none; -webkit-user-select: none;
-  }
+body {
+width: 100%; height: 100%; overflow: hidden;
+background: var(--bg);
+font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+color: var(--text);
+user-select: none; -webkit-user-select: none;
+}
 
-  #map, #fog-svg {
-    position: fixed;
-    top: var(--safe-t);
-    left: var(--safe-l);
-    right: var(--safe-r);
-    bottom: calc(var(--bar-height, 140px) + var(--safe-b));
-  }
-  #fog-svg {
-    pointer-events: none;
-    z-index: 450;
-    overflow: visible;
-  }
+#map, #fog-svg {
+position: fixed;
+top: var(--safe-t);
+left: var(--safe-l);
+right: var(--safe-r);
+bottom: var(--bar-height, 140px);
+}
+#fog-svg {
+pointer-events: none;
+z-index: 450;
+overflow: visible;
+}
 
-  #bar {
-    position: fixed; left: 0; right: 0; bottom: 0;
-    background: var(--surface);
-    border-top: 1px solid var(--muted);
-    display: flex; flex-direction: column; align-items: center;
-    padding: 10px calc(15px + var(--safe-r)) 0 calc(15px + var(--safe-l));
-    padding-bottom: max(35px, calc(var(--safe-b) + 15px));
-    gap: 10px;
-    z-index: 500;
-  }
-  #status-line {
-    font-size: 18px; font-weight: 600;
-    color: var(--accent); letter-spacing: .01em;
-    padding: 2px 8px;
-  }
-  #button-row { display: flex; gap: 10px; width: 100%; }
-  .bar-btn {
-    flex: 1; height: 60px;
-    border: none; outline: none; border-radius: 15px;
-    background: var(--muted); color: var(--text);
-    font-size: 15px; font-weight: 600; cursor: pointer;
-    transition: background .15s, transform .1s;
-    -webkit-appearance: none;
-  }
-  .bar-btn:active { transform: scale(.95); }
-  .bar-btn.active   { background: var(--accent); }
-  .bar-btn.done-btn { background: var(--accent); }
+#bar {
+position: fixed; left: 0; right: 0; bottom: 0;
+background: var(--surface);
+border-top: 1px solid var(--muted);
+display: flex; flex-direction: column; align-items: center;
+padding: 10px calc(15px + var(--safe-r)) 0 calc(15px + var(--safe-l));
+padding-bottom: max(35px, calc(var(--safe-b) + 15px));
+gap: 10px;
+z-index: 500;
+}
+#status-line {
+font-size: 18px; font-weight: 600;
+color: var(--accent); letter-spacing: .01em;
+padding: 2px 8px;
+}
+#button-row { display: flex; gap: 10px; width: 100%; }
+.bar-btn {
+flex: 1; height: 60px;
+border: none; outline: none; border-radius: 15px;
+background: var(--muted); color: var(--text);
+font-size: 15px; font-weight: 600; cursor: pointer;
+transition: background .15s, transform .1s;
+-webkit-appearance: none;
+}
+.bar-btn:active { transform: scale(.95); }
+.bar-btn.active { background: var(--accent); }
+.bar-btn.done-btn { background: var(--accent); }
 
-  #menu-overlay { display: none; position: fixed; inset: 0; z-index: 600; }
-  #menu-overlay.open { display: block; }
-  #menu-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
-  #menu-sheet {
-    position: absolute; left: 0; right: 0; bottom: 0;
-    background: var(--surface);
-    border-radius: 20px 20px 0 0;
-    padding: 15px calc(15px + var(--safe-r)) 0 calc(15px + var(--safe-l));
-    padding-bottom: max(35px, calc(var(--safe-b) + 15px));
-    display: flex; flex-direction: column; gap: 10px;
-  }
-  #menu-handle {
-    width: 40px; height: 4px; border-radius: 2px;
-    background: var(--muted); align-self: center; margin-bottom: 4px;
-  }
-  .menu-btn {
-    width: 100%; height: 55px;
-    border: none; outline: none; border-radius: 15px;
-    background: var(--muted); color: var(--text);
-    font-size: 18px; font-weight: 600; cursor: pointer;
-    -webkit-appearance: none;
-    transition: background .15s, transform .1s;
-  }
-  .menu-btn:active { transform: scale(.95); }
-  .menu-btn.danger   { background: var(--danger); color: #fff; }
-  .menu-btn.back-btn { background: var(--accent); color: #fff; }
+#btn-follow {
+display: none;
+position: fixed;
+top: calc(var(--safe-t) + 15px);
+left: calc(var(--safe-l) + 15px);
+height: 40px;
+padding: 0 20px;
+border: none; outline: none; border-radius: 15px;
+background: var(--muted); color: var(--text);
+font-size: 15px; font-weight: 600; cursor: pointer;
+transition: background .15s, transform .1s;
+-webkit-appearance: none;
+z-index: 480;
+}
+#btn-follow.visible { display: block; }
+#btn-follow:active { transform: scale(.95); }
+#btn-follow.active { background: var(--accent); }
 
-  #confirm-overlay {
-    display: none; position: fixed; inset: 0; z-index: 700;
-    background: rgba(0,0,0,.65);
-    align-items: center; justify-content: center;
-  }
-  #confirm-overlay.open { display: flex; }
-  #confirm-box {
-    background: var(--surface); border-radius: 20px;
-    padding: 28px 20px 20px;
-    width: min(300px, 90vw);
-    display: flex; flex-direction: column; gap: 15px; align-items: center;
-  }
-  #confirm-box p { font-size: 20px; font-weight: 700; text-align: center; }
-  .confirm-row { display: flex; gap: 10px; width: 100%; }
-  .confirm-row button {
-    flex: 1; height: 50px;
-    border: none; outline: none; border-radius: 15px;
-    font-size: 16px; font-weight: 600; cursor: pointer;
-    -webkit-appearance: none;
-  }
-  #confirm-cancel { background: var(--muted); color: var(--text); }
-  #confirm-ok     { background: var(--danger); color: #fff; }
+#menu-overlay { display: none; position: fixed; inset: 0; z-index: 600; }
+#menu-overlay.open { display: block; }
+#menu-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+#menu-sheet {
+position: absolute; left: 0; right: 0; bottom: 0;
+background: var(--surface);
+border-radius: 20px 20px 0 0;
+padding: 15px calc(15px + var(--safe-r)) 0 calc(15px + var(--safe-l));
+padding-bottom: max(35px, calc(var(--safe-b) + 15px));
+display: flex; flex-direction: column; gap: 10px;
+}
+#menu-handle {
+width: 40px; height: 4px; border-radius: 2px;
+background: var(--muted); align-self: center; margin-bottom: 4px;
+}
+.menu-btn {
+width: 100%; height: 55px;
+border: none; outline: none; border-radius: 15px;
+background: var(--muted); color: var(--text);
+font-size: 18px; font-weight: 600; cursor: pointer;
+-webkit-appearance: none;
+transition: background .15s, transform .1s;
+}
+.menu-btn:active { transform: scale(.95); }
+.menu-btn.danger { background: var(--danger); color: #fff; }
+.menu-btn.back-btn { background: var(--accent); color: #fff; }
 
-  .leaflet-control-attribution {
-    background: rgba(16,16,16,0.7) !important;
-    color: #aaa !important;
-  }
-  .leaflet-control-attribution a { color: #00a0e0 !important; }
+#confirm-overlay {
+display: none; position: fixed; inset: 0; z-index: 700;
+background: rgba(0,0,0,.65);
+align-items: center; justify-content: center;
+}
+#confirm-overlay.open { display: flex; }
+#confirm-box {
+background: var(--surface); border-radius: 20px;
+padding: 28px 20px 20px;
+width: min(300px, 90vw);
+display: flex; flex-direction: column; gap: 15px; align-items: center;
+}
+#confirm-box p { font-size: 20px; font-weight: 700; text-align: center; }
+.confirm-row { display: flex; gap: 10px; width: 100%; }
+.confirm-row button {
+flex: 1; height: 50px;
+border: none; outline: none; border-radius: 15px;
+font-size: 16px; font-weight: 600; cursor: pointer;
+-webkit-appearance: none;
+}
+#confirm-cancel { background: var(--muted); color: var(--text); }
+#confirm-ok { background: var(--danger); color: #fff; }
+
+.leaflet-control-attribution {
+background: rgba(16,16,16,0.7) !important;
+color: #aaa !important;
+}
+.leaflet-control-attribution a { color: #00a0e0 !important; }
 </style>
 </head>
 <body>
@@ -143,35 +161,36 @@
 
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<button id="btn-follow">Follow</button>
 
 <div id="bar">
-  <div id="status-line">0 hexagons</div>
-  <div id="button-row">
-    <button class="bar-btn" id="btn-menu">Menu</button>
-    <button class="bar-btn" id="btn-location">Use location</button>
-    <button class="bar-btn" id="btn-select">Select</button>
-  </div>
+<div id="status-line">0 hexagons</div>
+<div id="button-row">
+<button class="bar-btn" id="btn-menu">Menu</button>
+<button class="bar-btn" id="btn-location">Use location</button>
+<button class="bar-btn" id="btn-select">Select</button>
+</div>
 </div>
 
 <div id="menu-overlay">
-  <div id="menu-backdrop"></div>
-  <div id="menu-sheet">
-    <div id="menu-handle"></div>
-    <button class="menu-btn back-btn" id="menu-back">Back</button>
-    <button class="menu-btn" id="menu-save">Save</button>
-    <button class="menu-btn" id="menu-load">Load</button>
-    <button class="menu-btn danger" id="menu-clear">Clear data</button>
-  </div>
+<div id="menu-backdrop"></div>
+<div id="menu-sheet">
+<div id="menu-handle"></div>
+<button class="menu-btn back-btn" id="menu-back">Back</button>
+<button class="menu-btn" id="menu-save">Save</button>
+<button class="menu-btn" id="menu-load">Load</button>
+<button class="menu-btn danger" id="menu-clear">Clear data</button>
+</div>
 </div>
 
 <div id="confirm-overlay">
-  <div id="confirm-box">
-    <p>Are you sure?</p>
-    <div class="confirm-row">
-      <button id="confirm-cancel">Cancel</button>
-      <button id="confirm-ok">Clear</button>
-    </div>
-  </div>
+<div id="confirm-box">
+<p>Are you sure?</p>
+<div class="confirm-row">
+<button id="confirm-cancel">Cancel</button>
+<button id="confirm-ok">Clear</button>
+</div>
+</div>
 </div>
 
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -180,115 +199,115 @@
 'use strict';
 
 const CALIBRATION_LATITUDE = 35;
-const METRES_PER_DEGREE    = 111320;
-const TARGET_HEX_METRES    = 100;
+const METRES_PER_DEGREE = 111320;
+const TARGET_HEX_METRES = 100;
 
-const pxPerMetreAtEquator    = (256 / 360) / METRES_PER_DEGREE;
+const pxPerMetreAtEquator = (256 / 360) / METRES_PER_DEGREE;
 const pxPerMetreAtCalibration = pxPerMetreAtEquator / Math.cos(CALIBRATION_LATITUDE * Math.PI / 180);
 const HEX_RADIUS_PX0 = (TARGET_HEX_METRES / 2) * pxPerMetreAtCalibration;
 
 function hexKey(q, r) { return `${q},${r}`; }
 function parseHexKey(key) {
-  const [q, r] = key.split(',').map(Number);
-  return { q, r };
+const [q, r] = key.split(',').map(Number);
+return { q, r };
 }
 
 function axialToPixel0(q, r) {
-  return {
-    x: HEX_RADIUS_PX0 * 1.5 * q,
-    y: HEX_RADIUS_PX0 * Math.sqrt(3) * (r + q / 2),
-  };
+return {
+x: HEX_RADIUS_PX0 * 1.5 * q,
+y: HEX_RADIUS_PX0 * Math.sqrt(3) * (r + q / 2),
+};
 }
 
 function latLngToHexKey(lat, lng) {
-  const p = map.project(L.latLng(lat, lng), 0);
-  const fq = p.x * 2 / (3 * HEX_RADIUS_PX0);
-  const fr = p.y / (Math.sqrt(3) * HEX_RADIUS_PX0) - fq / 2;
-  const fs = -fq - fr;
+const p = map.project(L.latLng(lat, lng), 0);
+const fq = p.x * 2 / (3 * HEX_RADIUS_PX0);
+const fr = p.y / (Math.sqrt(3) * HEX_RADIUS_PX0) - fq / 2;
+const fs = -fq - fr;
 
-  let q = Math.round(fq), r = Math.round(fr), s = Math.round(fs);
-  const dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s - fs);
-  if      (dq > dr && dq > ds) q = -r - s;
-  else if (dr > ds)            r = -q - s;
+let q = Math.round(fq), r = Math.round(fr), s = Math.round(fs);
+const dq = Math.abs(q - fq), dr = Math.abs(r - fr), ds = Math.abs(s - fs);
+if (dq > dr && dq > ds) q = -r - s;
+else if (dr > ds) r = -q - s;
 
-  return hexKey(q, r);
+return hexKey(q, r);
 }
 
 function hexNeighbours(q, r) {
-  return [[q+1,r], [q-1,r], [q,r+1], [q,r-1], [q+1,r-1], [q-1,r+1]];
+return [[q+1,r], [q-1,r], [q,r+1], [q,r-1], [q+1,r-1], [q-1,r+1]];
 }
 
 function hexCenterOnScreen(q, r) {
-  const { x, y } = axialToPixel0(q, r);
-  const scale = Math.pow(2, map.getZoom());
-  const absolutePixel = L.point(x * scale, y * scale);
-  const origin = map.getPixelOrigin();
-  const layerPoint = L.point(absolutePixel.x - origin.x, absolutePixel.y - origin.y);
-  return map.layerPointToContainerPoint(layerPoint);
+const { x, y } = axialToPixel0(q, r);
+const scale = Math.pow(2, map.getZoom());
+const absolutePixel = L.point(x * scale, y * scale);
+const origin = map.getPixelOrigin();
+const layerPoint = L.point(absolutePixel.x - origin.x, absolutePixel.y - origin.y);
+return map.layerPointToContainerPoint(layerPoint);
 }
 
 function hexCornersOnScreen(q, r) {
-  const center = hexCenterOnScreen(q, r);
-  const radius = HEX_RADIUS_PX0 * Math.pow(2, map.getZoom());
-  const corners = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = i * (Math.PI / 3);
-    corners.push({
-      x: center.x + radius * Math.cos(angle),
-      y: center.y + radius * Math.sin(angle),
-    });
-  }
-  return corners;
+const center = hexCenterOnScreen(q, r);
+const radius = HEX_RADIUS_PX0 * Math.pow(2, map.getZoom());
+const corners = [];
+for (let i = 0; i < 6; i++) {
+const angle = i * (Math.PI / 3);
+corners.push({
+x: center.x + radius * Math.cos(angle),
+y: center.y + radius * Math.sin(angle),
+});
+}
+return corners;
 }
 
 function hexSvgPath(q, r) {
-  const corners = hexCornersOnScreen(q, r);
-  const points = corners.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L ');
-  return `M ${points} Z`;
+const corners = hexCornersOnScreen(q, r);
+const points = corners.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' L ');
+return `M ${points} Z`;
 }
 
 const map = L.map('map', {
-  center: [20, 0],
-  zoom: 3,
-  zoomControl: false,
-  attributionControl: true,
+center: [20, 0],
+zoom: 3,
+zoomControl: false,
+attributionControl: true,
 });
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap contributors',
-  maxZoom: 19,
+attribution: '© OpenStreetMap contributors',
+maxZoom: 19,
 }).addTo(map);
 
 function syncBarHeight() {
-  const height = document.getElementById('bar').getBoundingClientRect().height;
-  document.documentElement.style.setProperty('--bar-height', height + 'px');
+const height = document.getElementById('bar').getBoundingClientRect().height;
+document.documentElement.style.setProperty('--bar-height', height + 'px');
 }
 
 function syncSafeArea() {
-  const root = document.documentElement;
-  const top    = document.getElementById('probe-t').getBoundingClientRect().height;
-  const bottom = document.getElementById('probe-b').getBoundingClientRect().height;
-  const left   = document.getElementById('probe-l').getBoundingClientRect().width;
-  const right  = document.getElementById('probe-r').getBoundingClientRect().width;
-  root.style.setProperty('--safe-t', top + 'px');
-  root.style.setProperty('--safe-b', bottom + 'px');
-  root.style.setProperty('--safe-l', left + 'px');
-  root.style.setProperty('--safe-r', right + 'px');
+const root = document.documentElement;
+const top = document.getElementById('probe-t').getBoundingClientRect().height;
+const bottom = document.getElementById('probe-b').getBoundingClientRect().height;
+const left = document.getElementById('probe-l').getBoundingClientRect().width;
+const right = document.getElementById('probe-r').getBoundingClientRect().width;
+root.style.setProperty('--safe-t', top + 'px');
+root.style.setProperty('--safe-b', bottom + 'px');
+root.style.setProperty('--safe-l', left + 'px');
+root.style.setProperty('--safe-r', right + 'px');
 }
 
 function syncFogSvgSize() {
-  const svg = document.getElementById('fog-svg');
-  const rect = svg.getBoundingClientRect();
-  svg.setAttribute('width', Math.ceil(rect.width));
-  svg.setAttribute('height', Math.ceil(rect.height));
+const svg = document.getElementById('fog-svg');
+const rect = svg.getBoundingClientRect();
+svg.setAttribute('width', Math.ceil(rect.width));
+svg.setAttribute('height', Math.ceil(rect.height));
 }
 
 function syncLayout(includeFog) {
-  syncSafeArea();
-  syncBarHeight();
-  syncFogSvgSize();
-  map.invalidateSize({ animate: false, pan: false });
-  if (includeFog) drawFog();
+syncSafeArea();
+syncBarHeight();
+syncFogSvgSize();
+map.invalidateSize({ animate: false, pan: false });
+if (includeFog) drawFog();
 }
 
 syncLayout(false);
@@ -300,32 +319,37 @@ let userLatLng = null;
 let userAccuracy = null;
 let watchId = null;
 let hasSnappedToUser = false;
+let followMode = false;
+let isProgrammaticMove = false;
 
 const STORAGE_KEY = 'hexplore_v1';
 
 function saveRevealedHexes() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...revealedHexes]));
-  } catch (e) { }
+try {
+localStorage.setItem(STORAGE_KEY, JSON.stringify([...revealedHexes]));
+} catch (e) { }
 }
 
 function loadRevealedHexes() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) revealedHexes = new Set(JSON.parse(saved));
-  } catch (e) { }
+try {
+const saved = localStorage.getItem(STORAGE_KEY);
+if (saved) revealedHexes = new Set(JSON.parse(saved));
+} catch (e) { }
 }
 
 loadRevealedHexes();
 
-if (revealedHexes.size > 0) {
-  const keys = [...revealedHexes];
-  const randomKey = keys[Math.floor(Math.random() * keys.length)];
-  const { q, r } = parseHexKey(randomKey);
-  const { x, y } = axialToPixel0(q, r);
-  const latLng = map.unproject(L.point(x, y), 0);
-  map.setView(latLng, 15, { animate: false });
+function snapToRandomRevealedHex() {
+if (revealedHexes.size === 0) return;
+const keys = [...revealedHexes];
+const randomKey = keys[Math.floor(Math.random() * keys.length)];
+const { q, r } = parseHexKey(randomKey);
+const { x, y } = axialToPixel0(q, r);
+const latLng = map.unproject(L.point(x, y), 0);
+map.setView(latLng, 15, { animate: false });
 }
+
+snapToRandomRevealedHex();
 
 const fogSvg = document.getElementById('fog-svg');
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -336,285 +360,314 @@ let borderLayer = null;
 let cachedBorderHexes = null;
 
 function getBorderHexes() {
-  if (cachedBorderHexes) return cachedBorderHexes;
-  cachedBorderHexes = new Set();
-  for (const key of revealedHexes) {
-    const { q, r } = parseHexKey(key);
-    for (const [nq, nr] of hexNeighbours(q, r)) {
-      const neighbourKey = hexKey(nq, nr);
-      if (!revealedHexes.has(neighbourKey)) cachedBorderHexes.add(neighbourKey);
-    }
-  }
-  return cachedBorderHexes;
+if (cachedBorderHexes) return cachedBorderHexes;
+cachedBorderHexes = new Set();
+for (const key of revealedHexes) {
+const { q, r } = parseHexKey(key);
+for (const [nq, nr] of hexNeighbours(q, r)) {
+const neighbourKey = hexKey(nq, nr);
+if (!revealedHexes.has(neighbourKey)) cachedBorderHexes.add(neighbourKey);
+}
+}
+return cachedBorderHexes;
 }
 
 function invalidateBorderCache() { cachedBorderHexes = null; }
 
 function ensureFogLayers() {
-  if (!fogLayer) {
-    fogLayer = document.createElementNS(SVG_NS, 'path');
-    fogLayer.setAttribute('fill-rule', 'evenodd');
-    fogLayer.setAttribute('fill', '#101010');
-    fogLayer.setAttribute('pointer-events', 'none');
-    fogSvg.appendChild(fogLayer);
-  }
-  if (!borderLayer) {
-    borderLayer = document.createElementNS(SVG_NS, 'path');
-    borderLayer.setAttribute('fill', '#101010');
-    borderLayer.setAttribute('pointer-events', 'none');
-    fogSvg.appendChild(borderLayer);
-  }
+if (!fogLayer) {
+fogLayer = document.createElementNS(SVG_NS, 'path');
+fogLayer.setAttribute('fill-rule', 'evenodd');
+fogLayer.setAttribute('fill', '#101010');
+fogLayer.setAttribute('pointer-events', 'none');
+fogSvg.appendChild(fogLayer);
+}
+if (!borderLayer) {
+borderLayer = document.createElementNS(SVG_NS, 'path');
+borderLayer.setAttribute('fill', '#101010');
+borderLayer.setAttribute('pointer-events', 'none');
+fogSvg.appendChild(borderLayer);
+}
 }
 
 function redrawFog() {
-  invalidateBorderCache();
-  drawFog();
+invalidateBorderCache();
+drawFog();
 }
 
 function drawFog() {
-  ensureFogLayers();
+ensureFogLayers();
 
-  const fogOpacity    = selectMode ? 0.5 : 0.95;
-  const borderOpacity = 0.5;
-  const borders = getBorderHexes();
+const fogOpacity = selectMode ? 0.5 : 0.95;
+const borderOpacity = 0.5;
+const borders = getBorderHexes();
 
-  const revealedPaths = [];
-  for (const key of revealedHexes) {
-    const { q, r } = parseHexKey(key);
-    revealedPaths.push(hexSvgPath(q, r));
-  }
-  const borderPaths = [];
-  for (const key of borders) {
-    const { q, r } = parseHexKey(key);
-    borderPaths.push(hexSvgPath(q, r));
-  }
+const revealedPaths = [];
+for (const key of revealedHexes) {
+const { q, r } = parseHexKey(key);
+revealedPaths.push(hexSvgPath(q, r));
+}
+const borderPaths = [];
+for (const key of borders) {
+const { q, r } = parseHexKey(key);
+borderPaths.push(hexSvgPath(q, r));
+}
 
-  fogLayer.setAttribute('fill-opacity', String(fogOpacity));
-  fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
+fogLayer.setAttribute('fill-opacity', String(fogOpacity));
+fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
 
-  borderLayer.setAttribute('fill-opacity', String(borderOpacity));
-  borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
+borderLayer.setAttribute('fill-opacity', String(borderOpacity));
+borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
 }
 
 map.on('move zoom viewreset', drawFog);
 
 map.on('click', (e) => {
-  if (!selectMode) return;
-  if (map.getZoom() < 15) return;
-  toggleHex(latLngToHexKey(e.latlng.lat, e.latlng.lng));
+if (!selectMode) return;
+if (map.getZoom() < 15) return;
+toggleHex(latLngToHexKey(e.latlng.lat, e.latlng.lng));
 });
 
 function toggleHex(key) {
-  if (!selectMode) return;
+if (!selectMode) return;
 
-  if (trackingOn && userLatLng && userAccuracy < 100) {
-    const userKey = latLngToHexKey(userLatLng.lat, userLatLng.lng);
-    if (key === userKey && revealedHexes.has(key)) return;
-  }
+if (trackingOn && userLatLng && userAccuracy < 100) {
+const userKey = latLngToHexKey(userLatLng.lat, userLatLng.lng);
+if (key === userKey && revealedHexes.has(key)) return;
+}
 
-  if (revealedHexes.has(key)) revealedHexes.delete(key);
-  else                          revealedHexes.add(key);
+if (revealedHexes.has(key)) revealedHexes.delete(key);
+else revealedHexes.add(key);
 
-  saveRevealedHexes();
-  redrawFog();
-  updateStatusLine();
+saveRevealedHexes();
+redrawFog();
+updateStatusLine();
 }
 
 const userLocationIcon = L.divIcon({
-  className: '',
-  html: '<div style="width:18px;height:18px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 8px rgba(0,160,224,.8);"></div>',
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
+className: '',
+html: '<div style="width:18px;height:18px;border-radius:50%;background:#00a0e0;border:3px solid #fff;box-shadow:0 0 8px rgba(0,160,224,.8);"></div>',
+iconSize: [18, 18],
+iconAnchor: [9, 9],
 });
 
 let userMarker = null;
 let userAccuracyCircle = null;
 
 function onPositionUpdate(position) {
-  const { latitude: lat, longitude: lng, accuracy } = position.coords;
-  userLatLng  = { lat, lng };
-  userAccuracy = accuracy;
+const { latitude: lat, longitude: lng, accuracy } = position.coords;
+userLatLng = { lat, lng };
+userAccuracy = accuracy;
 
-  if (!hasSnappedToUser) {
-    hasSnappedToUser = true;
-    map.setView([lat, lng], 17, { animate: false });
-  }
+if (!hasSnappedToUser) {
+hasSnappedToUser = true;
+isProgrammaticMove = true;
+map.setView([lat, lng], 17, { animate: false });
+isProgrammaticMove = false;
+} else if (followMode) {
+isProgrammaticMove = true;
+map.panTo([lat, lng], { animate: false });
+isProgrammaticMove = false;
+}
 
-  if (!userMarker) {
-    userMarker = L.marker([lat, lng], { icon: userLocationIcon, zIndexOffset: 1000 }).addTo(map);
-  } else {
-    userMarker.setLatLng([lat, lng]);
-  }
+if (!userMarker) {
+userMarker = L.marker([lat, lng], { icon: userLocationIcon, zIndexOffset: 1000 }).addTo(map);
+} else {
+userMarker.setLatLng([lat, lng]);
+}
 
-  if (!userAccuracyCircle) {
-    userAccuracyCircle = L.circle([lat, lng], {
-      radius: accuracy,
-      color: '#00a0e0',
-      fillColor: '#00a0e0',
-      fillOpacity: 0.08,
-      weight: 1,
-      opacity: 0.4,
-    }).addTo(map);
-  } else {
-    userAccuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
-  }
+if (!userAccuracyCircle) {
+userAccuracyCircle = L.circle([lat, lng], {
+radius: accuracy,
+color: '#00a0e0',
+fillColor: '#00a0e0',
+fillOpacity: 0.08,
+weight: 1,
+opacity: 0.4,
+}).addTo(map);
+} else {
+userAccuracyCircle.setLatLng([lat, lng]).setRadius(accuracy);
+}
 
-  if (accuracy < 100) {
-    const key = latLngToHexKey(lat, lng);
-    if (!revealedHexes.has(key)) {
-      revealedHexes.add(key);
-      saveRevealedHexes();
-      redrawFog();
-    }
-  }
+if (accuracy < 100) {
+const key = latLngToHexKey(lat, lng);
+if (!revealedHexes.has(key)) {
+revealedHexes.add(key);
+saveRevealedHexes();
+redrawFog();
+}
+}
 
-  updateStatusLine();
+updateStatusLine();
 }
 
 function onPositionError(error) {
-  console.warn('Geolocation error:', error.message);
+console.warn('Geolocation error:', error.message);
 }
 
 function startTracking() {
-  trackingOn = true;
-  hasSnappedToUser = false;
-  document.getElementById('btn-location').textContent = 'Stop tracking';
-  document.getElementById('btn-location').classList.add('active');
-  watchId = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, {
-    enableHighAccuracy: true,
-    maximumAge: 2000,
-    timeout: 10000,
-  });
+trackingOn = true;
+hasSnappedToUser = false;
+document.getElementById('btn-location').textContent = 'Stop tracking';
+document.getElementById('btn-location').classList.add('active');
+document.getElementById('btn-follow').classList.add('visible');
+setFollowMode(false);
+watchId = navigator.geolocation.watchPosition(onPositionUpdate, onPositionError, {
+enableHighAccuracy: true,
+maximumAge: 2000,
+timeout: 10000,
+});
 }
 
 function stopTracking() {
-  trackingOn = false;
-  document.getElementById('btn-location').textContent = 'Use location';
-  document.getElementById('btn-location').classList.remove('active');
+trackingOn = false;
+document.getElementById('btn-location').textContent = 'Use location';
+document.getElementById('btn-location').classList.remove('active');
+document.getElementById('btn-follow').classList.remove('visible');
+setFollowMode(false);
 
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-  }
-  if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
-  if (userAccuracyCircle) { map.removeLayer(userAccuracyCircle); userAccuracyCircle = null; }
+if (watchId !== null) {
+navigator.geolocation.clearWatch(watchId);
+watchId = null;
+}
+if (userMarker) { map.removeLayer(userMarker); userMarker = null; }
+if (userAccuracyCircle) { map.removeLayer(userAccuracyCircle); userAccuracyCircle = null; }
 
-  userLatLng = null;
-  userAccuracy = null;
-  updateStatusLine();
+userLatLng = null;
+userAccuracy = null;
+updateStatusLine();
 }
 
+function setFollowMode(on) {
+followMode = on;
+const btn = document.getElementById('btn-follow');
+btn.textContent = followMode ? 'Following' : 'Follow';
+btn.classList.toggle('active', followMode);
+if (followMode && userLatLng) {
+isProgrammaticMove = true;
+map.setView([userLatLng.lat, userLatLng.lng], 17, { animate: false });
+isProgrammaticMove = false;
+}
+}
+document.getElementById('btn-follow').addEventListener('click', () => {
+setFollowMode(!followMode);
+});
+map.on('dragstart', () => {
+if (followMode && !isProgrammaticMove) setFollowMode(false);
+});
+
 function updateStatusLine() {
-  const el = document.getElementById('status-line');
-  if (trackingOn && userAccuracy !== null) {
-	  el.textContent = `±${Math.round(userAccuracy)} meters`;
-	  } else {
-	  const count = revealedHexes.size;
-	  el.textContent = `${count} hexagon${count !== 1 ? 's' : ''}`;
-	  }
-	  }
+const el = document.getElementById('status-line');
+if (trackingOn && userAccuracy !== null) {
+	el.textContent = `±${Math.round(userAccuracy)} meters`;
+	} else {
+	const count = revealedHexes.size;
+	el.textContent = `${count} hexagon${count !== 1 ? 's' : ''}`;
+	}
+	}
 
-	  document.getElementById('btn-menu').addEventListener('click', () => {
-	  document.getElementById('menu-overlay').classList.add('open');
-	  });
+	document.getElementById('btn-menu').addEventListener('click', () => {
+	document.getElementById('menu-overlay').classList.add('open');
+	});
 
-	  document.getElementById('btn-location').addEventListener('click', () => {
-	  if (!trackingOn) {
-	  if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
-	  startTracking();
-	  } else {
-	  stopTracking();
-	  }
-	  });
+	document.getElementById('btn-location').addEventListener('click', () => {
+	if (!trackingOn) {
+	if (!navigator.geolocation) { alert('Geolocation not supported.'); return; }
+	startTracking();
+	} else {
+	stopTracking();
+	}
+	});
 
-	  document.getElementById('btn-select').addEventListener('click', () => {
-	  selectMode = !selectMode;
-	  const btn = document.getElementById('btn-select');
-	  btn.textContent = selectMode ? 'Done' : 'Select';
-	  btn.classList.toggle('done-btn', selectMode);
-	  redrawFog();
-	  });
+	document.getElementById('btn-select').addEventListener('click', () => {
+	selectMode = !selectMode;
+	const btn = document.getElementById('btn-select');
+	btn.textContent = selectMode ? 'Done' : 'Select';
+	btn.classList.toggle('done-btn', selectMode);
+	redrawFog();
+	});
 
-	  function closeMenu() {
-	  document.getElementById('menu-overlay').classList.remove('open');
-	  }
+	function closeMenu() {
+	document.getElementById('menu-overlay').classList.remove('open');
+	}
 
-	  document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
-	  document.getElementById('menu-back').addEventListener('click', closeMenu);
+	document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
+	document.getElementById('menu-back').addEventListener('click', closeMenu);
 
-	  document.getElementById('menu-save').addEventListener('click', () => {
-	  const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
-	  const url  = URL.createObjectURL(blob);
-	  const link = Object.assign(document.createElement('a'), {
-	  href: url,
-	  download: `hexplore-${new Date().toISOString().slice(0, 10)}.json`,
-	  });
-	  document.body.appendChild(link);
-	  link.click();
-	  document.body.removeChild(link);
-	  URL.revokeObjectURL(url);
-	  closeMenu();
-	  });
+	document.getElementById('menu-save').addEventListener('click', () => {
+	const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
+	const url = URL.createObjectURL(blob);
+	const link = Object.assign(document.createElement('a'), {
+	href: url,
+	download: `hexplore-${new Date().toISOString().slice(0, 10)}.json`,
+	});
+	document.body.appendChild(link);
+	link.click();
+	document.body.removeChild(link);
+	URL.revokeObjectURL(url);
+	closeMenu();
+	});
 
-	  document.getElementById('menu-load').addEventListener('click', () => {
-	  stopTracking();
-	  const fileInput = Object.assign(document.createElement('input'), {
-	  type: 'file',
-	  accept: '.json,application/json',
-	  });
-	  fileInput.addEventListener('change', () => {
-	  const file = fileInput.files[0];
-	  if (!file) return;
-	  const reader = new FileReader();
-	  reader.onload = (e) => {
-	  try {
-	  const imported = JSON.parse(e.target.result);
-	  if (!Array.isArray(imported)) throw new Error('not an array');
-	  revealedHexes = new Set(imported);
-	  saveRevealedHexes();
-	  redrawFog();
-	  updateStatusLine();
-	  closeMenu();
-	  } catch {
-	  alert('Invalid file.');
-	  }
-	  };
-	  reader.readAsText(file);
-	  });
-	  fileInput.click();
-	  });
+	document.getElementById('menu-load').addEventListener('click', () => {
+	stopTracking();
+	const fileInput = Object.assign(document.createElement('input'), {
+	type: 'file',
+	accept: '.json,application/json',
+	});
+	fileInput.addEventListener('change', () => {
+	const file = fileInput.files[0];
+	if (!file) return;
+	const reader = new FileReader();
+	reader.onload = (e) => {
+	try {
+	const imported = JSON.parse(e.target.result);
+	if (!Array.isArray(imported)) throw new Error('not an array');
+	revealedHexes = new Set(imported);
+	saveRevealedHexes();
+	snapToRandomRevealedHex();
+	redrawFog();
+	updateStatusLine();
+	closeMenu();
+	} catch {
+	alert('Invalid file.');
+	}
+	};
+	reader.readAsText(file);
+	});
+	fileInput.click();
+	});
 
-	  document.getElementById('menu-clear').addEventListener('click', () => {
-	  document.getElementById('confirm-overlay').classList.add('open');
-	  });
+	document.getElementById('menu-clear').addEventListener('click', () => {
+	document.getElementById('confirm-overlay').classList.add('open');
+	});
 
-	  document.getElementById('confirm-overlay').addEventListener('click', (e) => {
-	  if (e.target.id === 'confirm-overlay') {
-	  document.getElementById('confirm-overlay').classList.remove('open');
-	  }
-	  });
-	  document.getElementById('confirm-cancel').addEventListener('click', () => {
-	  document.getElementById('confirm-overlay').classList.remove('open');
-	  });
+	document.getElementById('confirm-overlay').addEventListener('click', (e) => {
+	if (e.target.id === 'confirm-overlay') {
+	document.getElementById('confirm-overlay').classList.remove('open');
+	}
+	});
+	document.getElementById('confirm-cancel').addEventListener('click', () => {
+	document.getElementById('confirm-overlay').classList.remove('open');
+	});
 
-	  document.getElementById('confirm-ok').addEventListener('click', () => {
-	  stopTracking();
-	  revealedHexes.clear();
-	  saveRevealedHexes();
-	  redrawFog();
-	  updateStatusLine();
-	  document.getElementById('confirm-overlay').classList.remove('open');
-	  closeMenu();
-	  });
+	document.getElementById('confirm-ok').addEventListener('click', () => {
+	stopTracking();
+	revealedHexes.clear();
+	saveRevealedHexes();
+	redrawFog();
+	updateStatusLine();
+	document.getElementById('confirm-overlay').classList.remove('open');
+	closeMenu();
+	});
 
-	  syncLayout(true);
-	  window.addEventListener('resize', () => syncLayout(true));
-	  window.addEventListener('orientationchange', () => {
-	  syncLayout(true);
-	  setTimeout(() => syncLayout(true), 50);
-	  setTimeout(() => syncLayout(true), 300);
-	  });
-	  updateStatusLine();
-  </script>
+	syncLayout(true);
+	window.addEventListener('resize', () => syncLayout(true));
+	window.addEventListener('orientationchange', () => {
+	syncLayout(true);
+	setTimeout(() => syncLayout(true), 50);
+	setTimeout(() => syncLayout(true), 300);
+	});
+	updateStatusLine();
+</script>
 </body>
 </html>
