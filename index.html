@@ -177,6 +177,7 @@
   <div id="menu-sheet">
     <div id="menu-handle"></div>
     <button class="menu-btn back-btn" id="menu-back">Back</button>
+    <button class="menu-btn" id="menu-milestone">Milestone: 500</button>
     <button class="menu-btn" id="menu-sound">Sound: on</button>
     <button class="menu-btn" id="menu-save">Export</button>
     <button class="menu-btn" id="menu-load">Import</button>
@@ -346,6 +347,10 @@ function getAudioCtx() {
   return audioCtx;
 }
 
+document.addEventListener('touchstart', () => {
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}, { passive: true, capture: true });
+
 function tone(freqStart, freqEnd, duration, volume, startOffset) {
   if (!soundOn) return;
   const ctx = getAudioCtx();
@@ -378,6 +383,17 @@ function playStopSound() {
 }
 
 const MILESTONE_COUNT_KEY = 'hexplore_milestone_count_v1';
+const MILESTONE_STEP_KEY  = 'hexplore_milestone_step_v1';
+
+const MILESTONE_STEPS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+let milestoneStep = 500;
+try {
+  const saved = localStorage.getItem(MILESTONE_STEP_KEY);
+  if (saved !== null) {
+    const parsed = parseInt(saved, 10);
+    if (MILESTONE_STEPS.includes(parsed)) milestoneStep = parsed;
+  }
+} catch (e) { }
 
 function getMilestoneBaseline() {
   try {
@@ -394,12 +410,12 @@ function setMilestoneBaseline(n) {
 let milestoneBaseline = getMilestoneBaseline();
 
 function checkMilestone(newCount) {
-  const previousFloor = Math.floor(milestoneBaseline / 1000);
-  const newFloor = Math.floor(newCount / 1000);
+  const previousFloor = Math.floor(milestoneBaseline / milestoneStep);
+  const newFloor = Math.floor(newCount / milestoneStep);
   milestoneBaseline = newCount;
   setMilestoneBaseline(milestoneBaseline);
   if (newFloor > previousFloor) {
-    sendMilestoneNotification(newFloor * 1000);
+    sendMilestoneNotification(newFloor * milestoneStep);
   }
 }
 
@@ -496,7 +512,7 @@ function redrawFog() {
 function drawFog() {
   ensureFogLayers();
 
-  const fogOpacity = selectMode ? 0.5 : 0.95;
+  const fogOpacity = selectMode ? 0.5 : 0.98;
   const borderOpacity = 0.5;
   const hexes = activeHexes();
   const borders = getBorderHexes();
@@ -732,7 +748,6 @@ document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 
 document.getElementById('menu-save').addEventListener('click', () => {
-  playOpenSound();
   const blob = new Blob([JSON.stringify([...revealedHexes])], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const link = Object.assign(document.createElement('a'), {
@@ -811,6 +826,17 @@ soundBtn.addEventListener('click', () => {
   }
   try { localStorage.setItem(SOUND_KEY, String(soundOn)); } catch (e) { }
   soundBtn.textContent = `Sound: ${soundOn ? 'on' : 'off'}`;
+});
+
+const milestoneBtn = document.getElementById('menu-milestone');
+milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
+milestoneBtn.addEventListener('click', () => {
+  const idx = MILESTONE_STEPS.indexOf(milestoneStep);
+  milestoneStep = MILESTONE_STEPS[(idx + 1) % MILESTONE_STEPS.length];
+  try { localStorage.setItem(MILESTONE_STEP_KEY, String(milestoneStep)); } catch (e) { }
+  milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
+  resetMilestoneBaseline(revealedHexes.size);
+  playStartSound();
 });
 
 document.getElementById('menu-clear').addEventListener('click', () => {
