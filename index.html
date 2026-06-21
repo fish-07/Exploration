@@ -870,6 +870,7 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   revealedHexes.clear();
   saveRevealedHexes();
   resetMilestoneBaseline(0);
+  map.setView([20, 0], 3, { animate: false });
 
   soundOn = true;
   try { localStorage.setItem(SOUND_KEY, 'true'); } catch (e) { }
