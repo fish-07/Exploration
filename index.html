@@ -394,12 +394,12 @@ function setMilestoneBaseline(n) {
 let milestoneBaseline = getMilestoneBaseline();
 
 function checkMilestone(newCount) {
-  const previousFloor = Math.floor(milestoneBaseline / 1000);
-  const newFloor = Math.floor(newCount / 1000);
+  const previousFloor = Math.floor(milestoneBaseline / 20);
+  const newFloor = Math.floor(newCount / 20);
   milestoneBaseline = newCount;
   setMilestoneBaseline(milestoneBaseline);
   if (newFloor > previousFloor) {
-    sendMilestoneNotification(newFloor * 1000);
+    sendMilestoneNotification(newFloor * 20);
   }
 }
 
