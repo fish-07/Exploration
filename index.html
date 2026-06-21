@@ -341,32 +341,61 @@ try {
 } catch (e) { }
 
 let audioCtx = null;
+
+function createAudioCtx() {
+  return new (window.AudioContext || window.webkitAudioContext)();
+}
+
 function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx || audioCtx.state === 'closed') {
+    audioCtx = createAudioCtx();
+  }
   return audioCtx;
+}
+
+function scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset) {
+  const startTime = ctx.currentTime + (startOffset || 0);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.setValueAtTime(freqStart, startTime);
+  osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
+  gain.gain.setValueAtTime(volume, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration);
+}
+
+function resumeWithTimeout(ctx, ms) {
+  return Promise.race([
+    ctx.resume().then(() => ctx.state),
+    new Promise((resolve) => setTimeout(() => resolve(ctx.state), ms)),
+  ]);
 }
 
 function tone(freqStart, freqEnd, duration, volume, startOffset) {
   if (!soundOn) return;
   const ctx = getAudioCtx();
-  const schedule = () => {
-    const startTime = ctx.currentTime + (startOffset || 0);
-    const osc  = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.setValueAtTime(freqStart, startTime);
-    osc.frequency.exponentialRampToValueAtTime(freqEnd, startTime + duration);
-    gain.gain.setValueAtTime(volume, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(startTime);
-    osc.stop(startTime + duration);
-  };
-  if (ctx.state === 'suspended') {
-    ctx.resume().then(schedule);
-  } else {
-    schedule();
+
+  if (ctx.state === 'running') {
+    scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset);
+    return;
   }
+
+  resumeWithTimeout(ctx, 300).then((state) => {
+    if (state === 'running') {
+      scheduleTone(ctx, freqStart, freqEnd, duration, volume, startOffset);
+      return;
+    }
+    audioCtx = createAudioCtx();
+    const freshCtx = audioCtx;
+    resumeWithTimeout(freshCtx, 300).then((freshState) => {
+      if (freshState === 'running') {
+        scheduleTone(freshCtx, freqStart, freqEnd, duration, volume, startOffset);
+      }
+    });
+  });
 }
 
 function playOpenSound() {
@@ -385,15 +414,19 @@ function playStopSound() {
 }
 
 const MILESTONE_COUNT_KEY = 'hexplore_milestone_count_v1';
-const MILESTONE_STEP_KEY  = 'hexplore_milestone_step_v1';
+const MILESTONE_STEP_KEY = 'hexplore_milestone_step_v1';
 
-const MILESTONE_STEPS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
+const MILESTONE_STEPS = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 'off'];
 let milestoneStep = 500;
 try {
   const saved = localStorage.getItem(MILESTONE_STEP_KEY);
   if (saved !== null) {
-    const parsed = parseInt(saved, 10);
-    if (MILESTONE_STEPS.includes(parsed)) milestoneStep = parsed;
+    if (saved === 'off') {
+      milestoneStep = 'off';
+    } else {
+      const parsed = parseInt(saved, 10);
+      if (MILESTONE_STEPS.includes(parsed)) milestoneStep = parsed;
+    }
   }
 } catch (e) { }
 
@@ -412,6 +445,11 @@ function setMilestoneBaseline(n) {
 let milestoneBaseline = getMilestoneBaseline();
 
 function checkMilestone(newCount) {
+  if (milestoneStep === 'off') {
+    milestoneBaseline = newCount;
+    setMilestoneBaseline(milestoneBaseline);
+    return;
+  }
   const previousFloor = Math.floor(milestoneBaseline / milestoneStep);
   const newFloor = Math.floor(newCount / milestoneStep);
   milestoneBaseline = newCount;
@@ -870,7 +908,6 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   revealedHexes.clear();
   saveRevealedHexes();
   resetMilestoneBaseline(0);
-  map.setView([20, 0], 3, { animate: false });
 
   soundOn = true;
   try { localStorage.setItem(SOUND_KEY, 'true'); } catch (e) { }
@@ -879,6 +916,8 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   milestoneStep = 500;
   try { localStorage.setItem(MILESTONE_STEP_KEY, '500'); } catch (e) { }
   milestoneBtn.textContent = 'Milestone: 500';
+
+  map.setView([20, 0], 3, { animate: false });
 
   redrawFog();
   updateStatusLine();
