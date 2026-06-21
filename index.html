@@ -758,7 +758,6 @@ document.getElementById('menu-save').addEventListener('click', () => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
-  playCloseSound();
   document.getElementById('menu-overlay').classList.remove('open');
 });
 
