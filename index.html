@@ -162,16 +162,13 @@
   #confirm-cancel { background: var(--muted); color: var(--text); }
   #confirm-ok { background: var(--danger); color: #fff; }
 
-  .leaflet-container {
-    cursor: default !important;
+  .leaflet-container.select-active {
+    cursor: pointer !important;
   }
-  .leaflet-grab {
-    cursor: default !important;
+  .leaflet-container.select-active .leaflet-grab {
+    cursor: pointer !important;
   }
-  .leaflet-dragging .leaflet-grab {
-    cursor: grabbing !important;
-  }
- 
+
   .leaflet-control-attribution {
     background: rgba(16,16,16,0.7) !important;
     color: #aaa !important;
@@ -795,6 +792,7 @@ document.getElementById('btn-select').addEventListener('click', () => {
   const btn = document.getElementById('btn-select');
   btn.textContent = selectMode ? 'Done' : 'Select';
   btn.classList.toggle('done-btn', selectMode);
+  document.getElementById('map').classList.toggle('select-active', selectMode);
   document.getElementById('btn-cancel-select').classList.toggle('visible', selectMode);
 
   if (selectMode) {
@@ -819,6 +817,7 @@ document.getElementById('btn-cancel-select').addEventListener('click', () => {
   const btn = document.getElementById('btn-select');
   btn.textContent = 'Select';
   btn.classList.remove('done-btn');
+  document.getElementById('map').classList.remove('select-active');
   document.getElementById('btn-cancel-select').classList.remove('visible');
   playCloseSound();
   redrawFog();
@@ -879,6 +878,7 @@ document.getElementById('menu-load').addEventListener('click', () => {
           const selectBtn = document.getElementById('btn-select');
           selectBtn.textContent = 'Select';
           selectBtn.classList.remove('done-btn');
+          document.getElementById('map').classList.remove('select-active');
           document.getElementById('btn-cancel-select').classList.remove('visible');
         }
 
@@ -950,6 +950,7 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
     const selectBtn = document.getElementById('btn-select');
     selectBtn.textContent = 'Select';
     selectBtn.classList.remove('done-btn');
+    document.getElementById('map').classList.remove('select-active');
     document.getElementById('btn-cancel-select').classList.remove('visible');
   }
 
