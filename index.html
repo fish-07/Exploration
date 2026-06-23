@@ -392,51 +392,84 @@ const THEMES = {
   },
   spring: {
     name: 'Spring',
-    '--bg': '#102010',
-    '--surface': '#204020',
-    '--muted': '#306030',
-    '--text': '#50a050',
-    '--accent': '#50a050',
-    '--danger': '#806040',
+    '--bg': '#081808',
+    '--surface': '#103010',
+    '--muted': '#206020',
+    '--text': '#c0f0c0',
+    '--accent': '#f080b0',
+    '--danger': '#d04040',
     '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#ff80c0',
+    locationColor: '#f080b0',
   },
   summer: {
     name: 'Summer',
-    '--bg': '#002040',
-    '--surface': '#806000',
-    '--muted': '#c09000',
-    '--text': '#ffe080',
-    '--accent': '#004080',
-    '--danger': '#285028',
+    '--bg': '#001830',
+    '--surface': '#002848',
+    '--muted': '#004080',
+    '--text': '#ffe880',
+    '--accent': '#40b8f0',
+    '--danger': '#e06030',
     '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#00a0e0',
+    locationColor: '#40b8f0',
   },
   autumn: {
     name: 'Autumn',
-    '--bg': '#301000',
-    '--surface': '#603000',
-    '--muted': '#804000',
-    '--text': '#ff8000',
-    '--accent': '#c06000',
-    '--danger': '#c08000',
+    '--bg': '#180800',
+    '--surface': '#301000',
+    '--muted': '#602010',
+    '--text': '#f0a040',
+    '--accent': '#e06010',
+    '--danger': '#902020',
     '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#ff8000',
+    locationColor: '#f0c060',
   },
   winter: {
     name: 'Winter',
-    '--bg': '#fff',
-    '--surface': '#a0d0ff',
-    '--muted': '#60b0ff',
-    '--text': '#0060c0',
-    '--accent': '#0080ff',
-    '--danger': '#c050c0',
+    '--bg': '#e8f0f8',
+    '--surface': '#c0d8f0',
+    '--muted': '#80b0e0',
+    '--text': '#082060',
+    '--accent': '#0060d0',
+    '--danger': '#c02080',
     '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
-    locationColor: '#c050c0',
+    locationColor: '#0080f0',
+  },
+  one: {
+    name: 'One',
+    '--bg': '#080810',
+    '--surface': '#100820',
+    '--muted': '#201840',
+    '--text': '#c0b0f0',
+    '--accent': '#8040f0',
+    '--danger': '#e02060',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#a060f0',
+  },
+  two: {
+    name: 'Two',
+    '--bg': '#201000',
+    '--surface': '#382010',
+    '--muted': '#604030',
+    '--text': '#f0d8a0',
+    '--accent': '#d08030',
+    '--danger': '#c03010',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#f0a050',
+  },
+  three: {
+    name: 'Three',
+    '--bg': '#000000',
+    '--surface': '#080808',
+    '--muted': '#181818',
+    '--text': '#e0f8f8',
+    '--accent': '#00e0d0',
+    '--danger': '#e00030',
+    '--font': '-apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif',
+    locationColor: '#00e0d0',
   },
 };
 
-const THEME_ORDER = ['default', 'spring', 'summer', 'autumn', 'winter'];
+const THEME_ORDER = ['default', 'spring', 'summer', 'autumn', 'winter', 'one', 'two', 'three'];
 const THEME_KEY = 'hexplore_theme_v1';
 let currentThemeName = 'default';
 try {
@@ -451,7 +484,10 @@ function applyTheme(name) {
   for (const [prop, val] of Object.entries(theme)) {
     if (prop.startsWith('--')) root.style.setProperty(prop, val);
   }
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  themeMeta.setAttribute('content', theme['--bg']);
+  themeMeta.remove();
+  document.head.appendChild(themeMeta);
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
@@ -1006,7 +1042,7 @@ milestoneBtn.addEventListener('click', () => {
   try { localStorage.setItem(MILESTONE_STEP_KEY, String(milestoneStep)); } catch (e) {}
   milestoneBtn.textContent = `Milestone: ${milestoneStep}`;
   resetMilestoneBaseline(revealedHexes.size);
-  playStartSound();
+  if (milestoneStep === 'Off') playStopSound(); else playStartSound();
 });
 
 const themeBtn = document.getElementById('menu-theme');
