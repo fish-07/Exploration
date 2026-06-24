@@ -397,8 +397,8 @@ function syncLayout(includeFog) {
   }
 }
 
-let revealedHexes = new Set();
-let draftHexes = null;
+let revealedHexagons = new Set();
+let draftHexagons = null;
 let trackingOn = false;
 let selectMode = false;
 let userLatLng = null;
@@ -411,7 +411,7 @@ let userMarker = null;
 let userAccuracyCircle = null;
 let fogLayer = null;
 let borderLayer = null;
-let cachedBorderHexes = null;
+let cachedBorderHexagons = null;
 
 syncLayout(false);
 
@@ -708,27 +708,17 @@ function loadAll() {
     const data = JSON.parse(raw);
     if (!data || typeof data !== 'object') return;
     placesData = new Map();
-    revealedHexes = new Set();
+    revealedHexagons = new Set();
     for (const [name, val] of Object.entries(data)) {
       if (!val || typeof val !== 'object' || !Array.isArray(val.hexagons)) continue;
       const hexSet = new Set(val.hexagons);
       placesData.set(name, { lat: val.lat ?? null, lng: val.lng ?? null, hexagons: hexSet });
-      for (const key of hexSet) revealedHexes.add(key);
+      for (const key of hexSet) revealedHexagons.add(key);
     }
-  } catch (e) {
-    // Legacy format: plain array of hex keys
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const imported = JSON.parse(raw);
-      if (Array.isArray(imported)) {
-        revealedHexes = new Set(imported);
-      }
-    } catch (e2) {}
-  }
+  } catch (e) {}
 }
 
-function activeHexes() { return selectMode ? draftHexes : revealedHexes; }
+function activeHexagons() { return selectMode ? draftHexagons : revealedHexagons; }
 
 loadAll();
 
@@ -820,15 +810,15 @@ function drainGeocodeQueue() {
   processNext();
 }
 
-function reconcilePlacesWithRevealedHexes() {
+function reconcilePlacesWithRevealedHexagons() {
   for (const [name, entry] of placesData) {
     for (const key of [...entry.hexagons]) {
-      if (!revealedHexes.has(key)) entry.hexagons.delete(key);
+      if (!revealedHexagons.has(key)) entry.hexagons.delete(key);
     }
     if (entry.hexagons.size === 0) placesData.delete(name);
   }
   for (const key of geocodeCache.keys()) {
-    if (!revealedHexes.has(key)) geocodeCache.delete(key);
+    if (!revealedHexagons.has(key)) geocodeCache.delete(key);
   }
 }
 
@@ -857,9 +847,9 @@ function renderPlacesList() {
   }
 }
 
-function snapToRandomRevealedHex() {
-  if (revealedHexes.size === 0) { map.setView([20, 0], 3, { animate: false }); return; }
-  const keys = [...revealedHexes];
+function snapToRandomRevealedHexagon() {
+  if (revealedHexagons.size === 0) { map.setView([20, 0], 3, { animate: false }); return; }
+  const keys = [...revealedHexagons];
   const randomKey = keys[Math.floor(Math.random() * keys.length)];
   const { q, r } = parseHexKey(randomKey);
   const { x, y } = axialToPixel0(q, r);
@@ -867,27 +857,27 @@ function snapToRandomRevealedHex() {
   map.setView(latLng, 15, { animate: false });
 }
 
-snapToRandomRevealedHex();
+snapToRandomRevealedHexagon();
 
 const fogSvg = document.getElementById('fog-svg');
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const WORLD_RECT = 'M -99999,-99999 L 99999,-99999 L 99999,99999 L -99999,99999 Z ';
 
-function getBorderHexes() {
-  if (cachedBorderHexes) return cachedBorderHexes;
-  cachedBorderHexes = new Set();
-  const hexes = activeHexes();
+function getBorderHexagons() {
+  if (cachedBorderHexagons) return cachedBorderHexagons;
+  cachedBorderHexagons = new Set();
+  const hexes = activeHexagons();
   for (const key of hexes) {
     const { q, r } = parseHexKey(key);
     for (const [nq, nr] of hexNeighbours(q, r)) {
       const nk = hexKey(nq, nr);
-      if (!hexes.has(nk)) cachedBorderHexes.add(nk);
+      if (!hexes.has(nk)) cachedBorderHexagons.add(nk);
     }
   }
-  return cachedBorderHexes;
+  return cachedBorderHexagons;
 }
 
-function invalidateBorderCache() { cachedBorderHexes = null; }
+function invalidateBorderCache() { cachedBorderHexagons = null; }
 
 function ensureFogLayers() {
   if (!fogLayer) {
@@ -911,8 +901,8 @@ function drawFog() {
   ensureFogLayers();
   const fogOpacity = selectMode ? 0.5 : 0.98;
   const borderOpacity = 0.5;
-  const hexes = activeHexes();
-  const borders = getBorderHexes();
+  const hexes = activeHexagons();
+  const borders = getBorderHexagons();
   const revealedPaths = [];
   for (const key of hexes) {
     const { q, r } = parseHexKey(key);
@@ -934,17 +924,17 @@ map.on('move zoom viewreset', drawFog);
 map.on('click', (e) => {
   if (!selectMode) return;
   if (map.getZoom() < 15) return;
-  toggleHex(latLngToHexKey(e.latlng.lat, e.latlng.lng));
+  toggleHexagon(latLngToHexKey(e.latlng.lat, e.latlng.lng));
 });
 
-function toggleHex(key) {
-  if (!selectMode || !draftHexes) return;
+function toggleHexagon(key) {
+  if (!selectMode || !draftHexagons) return;
   if (trackingOn && userLatLng && userAccuracy < 100) {
     const userKey = latLngToHexKey(userLatLng.lat, userLatLng.lng);
-    if (key === userKey && draftHexes.has(key)) return;
+    if (key === userKey && draftHexagons.has(key)) return;
   }
-  if (draftHexes.has(key)) { draftHexes.delete(key); playStopSound(); }
-  else { draftHexes.add(key); playStartSound(); }
+  if (draftHexagons.has(key)) { draftHexagons.delete(key); playStopSound(); }
+  else { draftHexagons.add(key); playStartSound(); }
   redrawFog();
   updateStatusLine();
 }
@@ -984,13 +974,13 @@ function onPositionUpdate(position) {
 
   if (accuracy < 100) {
     const key = latLngToHexKey(lat, lng);
-    if (!revealedHexes.has(key)) {
-      revealedHexes.add(key);
-      if (draftHexes) draftHexes.add(key);
+    if (!revealedHexagons.has(key)) {
+      revealedHexagons.add(key);
+      if (draftHexagons) draftHexagons.add(key);
       saveAll();
       redrawFog();
       if (!isFirstFix) playStartSound();
-      checkMilestone(revealedHexes.size);
+      checkMilestone(revealedHexagons.size);
       enqueueHexagonForPlaces(key, false);
     }
   }
@@ -1054,7 +1044,7 @@ function updateStatusLine() {
   if (trackingOn && userAccuracy !== null) {
     el.textContent = `±${Math.round(userAccuracy)} meters`;
   } else {
-    const count = activeHexes().size;
+    const count = activeHexagons().size;
     el.textContent = `${count} hexagon${count !== 1 ? 's' : ''}`;
   }
 }
@@ -1069,16 +1059,16 @@ function exitSelectMode(discard) {
   document.getElementById('btn-cancel-select').classList.remove('visible');
   if (!discard) {
     const newHexes = [];
-    for (const key of draftHexes) { if (!revealedHexes.has(key)) newHexes.push(key); }
-    revealedHexes = new Set(draftHexes);
-    draftHexes = null;
-    reconcilePlacesWithRevealedHexes();
+    for (const key of draftHexagons) { if (!revealedHexagons.has(key)) newHexes.push(key); }
+    revealedHexagons = new Set(draftHexagons);
+    draftHexagons = null;
+    reconcilePlacesWithRevealedHexagons();
     saveAll();
     renderPlacesList();
-    checkMilestone(revealedHexes.size);
+    checkMilestone(revealedHexagons.size);
     for (const key of newHexes) enqueueHexagonForPlaces(key, false);
   } else {
-    draftHexes = null;
+    draftHexagons = null;
   }
   redrawFog();
   updateStatusLine();
@@ -1103,7 +1093,7 @@ document.getElementById('btn-location').addEventListener('click', () => {
 document.getElementById('btn-select').addEventListener('click', () => {
   if (!selectMode) {
     selectMode = true;
-    draftHexes = new Set(revealedHexes);
+    draftHexagons = new Set(revealedHexagons);
     const btn = document.getElementById('btn-select');
     btn.textContent = 'Done';
     btn.classList.add('done-btn');
@@ -1196,22 +1186,17 @@ document.getElementById('menu-load').addEventListener('click', () => {
         if (!data || typeof data !== 'object') throw new Error('invalid');
         if (selectMode) exitSelectMode(true);
         placesData = new Map();
-        revealedHexes = new Set();
-        // Support both new format (object with places) and legacy format (array)
-        if (Array.isArray(data)) {
-          revealedHexes = new Set(data);
-        } else {
-          for (const [name, val] of Object.entries(data)) {
-            if (!val || typeof val !== 'object' || !Array.isArray(val.hexagons)) continue;
-            const hexSet = new Set(val.hexagons);
-            placesData.set(name, { lat: val.lat ?? null, lng: val.lng ?? null, hexagons: hexSet });
-            for (const key of hexSet) revealedHexes.add(key);
-          }
+        revealedHexagons = new Set();
+        for (const [name, val] of Object.entries(data)) {
+          if (!val || typeof val !== 'object' || !Array.isArray(val.hexagons)) continue;
+          const hexSet = new Set(val.hexagons);
+          placesData.set(name, { lat: val.lat ?? null, lng: val.lng ?? null, hexagons: hexSet });
+          for (const key of hexSet) revealedHexagons.add(key);
         }
         geocodeQueue = [];
         saveAll();
-        resetMilestoneBaseline(revealedHexes.size);
-        snapToRandomRevealedHex();
+        resetMilestoneBaseline(revealedHexagons.size);
+        snapToRandomRevealedHexagon();
         redrawFog();
         updateStatusLine();
         renderPlacesList();
@@ -1243,7 +1228,7 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   stopTracking();
   if (selectMode) exitSelectMode(true);
 
-  revealedHexes.clear();
+  revealedHexagons.clear();
   placesData.clear();
   geocodeCache.clear();
   geocodeQueue = [];
@@ -1290,7 +1275,7 @@ milestoneBtn.addEventListener('click', () => {
   milestoneStep = MILESTONE_STEPS[(idx + 1) % MILESTONE_STEPS.length];
   try { localStorage.setItem(MILESTONE_STEP_KEY, String(milestoneStep)); } catch (e) {}
   milestoneBtn.textContent = `Notify every: ${milestoneStep}`;
-  resetMilestoneBaseline(revealedHexes.size);
+  resetMilestoneBaseline(revealedHexagons.size);
   if (milestoneStep === 'Off') playStopSound(); else playStartSound();
 });
 
