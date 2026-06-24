@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Hexplore">
-<meta name="theme-color" content="#101010">
+<meta name="theme-color" content="#000000">
 <title>Hexplore</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -532,7 +532,6 @@ function applyTheme(name) {
   for (const [prop, val] of Object.entries(theme)) {
     if (prop.startsWith('--')) root.style.setProperty(prop, val);
   }
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
@@ -1300,11 +1299,6 @@ window.addEventListener('orientationchange', () => {
   syncLayout(true);
   setTimeout(() => syncLayout(true), 50);
   setTimeout(() => syncLayout(true), 300);
-  const theme = THEMES[currentThemeName] || THEMES.default;
-  document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
-  setTimeout(() => {
-    document.querySelector('meta[name="theme-color"]').setAttribute('content', theme['--bg']);
-  }, 300);
 });
 updateStatusLine();
 </script>
