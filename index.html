@@ -566,6 +566,15 @@ try {
   if (saved && THEMES[saved]) currentThemeName = saved;
 } catch (e) {}
 
+function syncThemeColor() {
+  const theme = THEMES[currentThemeName] || THEMES.default;
+  const color = theme['--bg'];
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', color);
+  document.documentElement.style.background = color;
+  document.body.style.background = color;
+}
+
 function applyTheme(name) {
   const theme = THEMES[name] || THEMES.default;
   currentThemeName = name;
@@ -576,9 +585,8 @@ function applyTheme(name) {
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
+  syncThemeColor();
   if (mistOn && !selectMode) drawMistCanvas();
-  const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.setAttribute('content', theme['--bg']);
 }
 
 function rebuildUserLocationIcon(color) {
@@ -1444,6 +1452,7 @@ mistBtn.addEventListener('click', () => {
   try { localStorage.setItem(MIST_KEY, String(mistOn)); } catch (e) {}
   mistBtn.textContent = `Mist: ${mistOn ? 'On' : 'Off'}`;
   if (mistOn) playStartSound(); else playStopSound();
+  syncThemeColor();
   redrawFog();
 });
 
