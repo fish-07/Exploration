@@ -225,7 +225,7 @@
 
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-<canvas id="mist-canvas" style="position:fixed;top:var(--safe-t);left:var(--safe-l);right:var(--safe-r);bottom:var(--bar-height,140px);pointer-events:none;z-index:451;display:none;"></canvas>
+<canvas id="mist-canvas" style="position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:451;display:none;"></canvas>
 <button id="btn-follow">Follow</button>
 <button id="btn-cancel-select">Cancel</button>
 
@@ -397,10 +397,10 @@ function syncFogSvgSize() {
 
 function syncMistCanvasCssPosition() {
   const rect = document.getElementById('map').getBoundingClientRect();
-  mistCanvas.style.left = rect.left + 'px';
-  mistCanvas.style.top = rect.top + 'px';
-  mistCanvas.style.width = rect.width + 'px';
-  mistCanvas.style.height = rect.height + 'px';
+  mistCanvas.style.left = '0px';
+  mistCanvas.style.top = '0px';
+  mistCanvas.style.width = window.innerWidth + 'px';
+  mistCanvas.style.height = window.innerHeight + 'px';
 }
 
 function syncMistCanvasSize() {
