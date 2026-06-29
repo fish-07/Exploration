@@ -131,9 +131,7 @@
     padding-bottom: max(35px, calc(var(--safe-b) + 15px));
     display: flex; flex-direction: column; gap: 10px;
     transition: transform .25s ease;
-  }
-  #places-sheet, #settings-sheet {
-    height: calc(20px + 6 * 55px + 5 * 10px + 15px + max(35px, calc(var(--safe-b) + 15px)));
+    height: calc(15px + 8px + 6 * 55px + 5 * 10px + max(35px, calc(var(--safe-b) + 15px)));
   }
   #places-list {
     overflow-y: auto;
@@ -227,6 +225,7 @@
 
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+<canvas id="mist-canvas" style="position:fixed;top:var(--safe-t);left:var(--safe-l);right:var(--safe-r);bottom:var(--bar-height,140px);pointer-events:none;z-index:451;display:none;"></canvas>
 <button id="btn-follow">Follow</button>
 <button id="btn-cancel-select">Cancel</button>
 
@@ -253,6 +252,7 @@
   <div id="settings-sheet">
     <div id="settings-handle"></div>
     <button class="menu-btn back-btn" id="settings-back">Back</button>
+    <button class="menu-btn" id="menu-mist">Mist: Off</button>
     <button class="menu-btn" id="menu-discovery">Minimum discovery: 100</button>
     <button class="menu-btn" id="menu-milestone">Notify every: 500</button>
     <button class="menu-btn" id="menu-sound">Sound: On</button>
@@ -395,10 +395,29 @@ function syncFogSvgSize() {
   svg.setAttribute('height', Math.ceil(rect.height));
 }
 
+function syncMistCanvasCssPosition() {
+  const rect = document.getElementById('map').getBoundingClientRect();
+  mistCanvas.style.left = rect.left + 'px';
+  mistCanvas.style.top = rect.top + 'px';
+  mistCanvas.style.width = rect.width + 'px';
+  mistCanvas.style.height = rect.height + 'px';
+}
+
+function syncMistCanvasSize() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = mistCanvas.getBoundingClientRect();
+  mistCanvas.width = Math.ceil(rect.width) * dpr;
+  mistCanvas.height = Math.ceil(rect.height) * dpr;
+}
+
 function syncLayout(includeFog) {
   syncSafeArea();
   syncBarHeight();
   syncFogSvgSize();
+  if (mistOn) {
+    syncMistCanvasCssPosition();
+    syncMistCanvasSize();
+  }
   const centerBefore = map.getCenter();
   map.invalidateSize({ animate: false, pan: false });
   map.setView(centerBefore, map.getZoom(), { animate: false });
@@ -425,6 +444,15 @@ let userAccuracyCircle = null;
 let fogLayer = null;
 let borderLayer = null;
 let cachedBorderHexagons = null;
+
+const MIST_KEY = 'hexplore_mist_v1';
+let mistOn = false;
+try {
+  const savedMist = localStorage.getItem(MIST_KEY);
+  if (savedMist !== null) mistOn = savedMist === 'true';
+} catch (e) {}
+
+const mistCanvas = document.getElementById('mist-canvas');
 
 syncLayout(false);
 
@@ -548,6 +576,7 @@ function applyTheme(name) {
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
+  if (mistOn && !selectMode) drawMistCanvas();
 }
 
 function rebuildUserLocationIcon(color) {
@@ -912,26 +941,139 @@ function ensureFogLayers() {
 
 function redrawFog() { invalidateBorderCache(); drawFog(); }
 
+const MIST_CLEAR_METRES = 50;
+const MIST_FADE_METRES = 120;
+const MIST_BORDER_CLEAR_METRES = 0;
+const MIST_BORDER_FADE_METRES = 105;
+const MIST_BORDER_PEAK_ALPHA = 0.32;
+const MIST_GRADIENT_STOPS = 8;
+
+function buildEaseStops(exponent, peakAlpha, n) {
+  const stops = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    stops.push([t, peakAlpha * Math.pow(1 - t, exponent)]);
+  }
+  return stops;
+}
+
+function makeRadialGradient(ctx, cx, cy, r0, r1, stops) {
+  const grad = ctx.createRadialGradient(cx, cy, r0, cx, cy, r1);
+  for (const [t, a] of stops) {
+    grad.addColorStop(t, `rgba(0,0,0,${a.toFixed(4)})`);
+  }
+  return grad;
+}
+
+function metresToScreenPx(metres) {
+  const centre = map.getCenter();
+  const p0 = map.latLngToContainerPoint(L.latLng(centre.lat, centre.lng));
+  const p1 = map.latLngToContainerPoint(L.latLng(centre.lat + 0.001, centre.lng));
+  const pxPerDegLat = Math.abs(p1.y - p0.y) / 0.001;
+  const pxPerMetre = pxPerDegLat / METRES_PER_DEGREE;
+  return metres * pxPerMetre;
+}
+
+function parseBgColor(hex) {
+  const s = hex.trim();
+  const m6 = s.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (m6) return [parseInt(m6[1], 16), parseInt(m6[2], 16), parseInt(m6[3], 16)];
+  const m3 = s.match(/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i);
+  if (m3) return [parseInt(m3[1] + m3[1], 16), parseInt(m3[2] + m3[2], 16), parseInt(m3[3] + m3[3], 16)];
+  return [16, 16, 16];
+}
+
+function drawMistCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const w = mistCanvas.width;
+  const h = mistCanvas.height;
+  const ctx = mistCanvas.getContext('2d');
+
+  const theme = THEMES[currentThemeName] || THEMES.default;
+  const [bgR, bgG, bgB] = parseBgColor(theme['--bg']);
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = `rgb(${bgR},${bgG},${bgB})`;
+  ctx.globalAlpha = 0.98;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalAlpha = 1;
+
+  const hexes = activeHexagons();
+  if (hexes.size === 0) return;
+
+  const clearPx = metresToScreenPx(MIST_CLEAR_METRES) * dpr;
+  const fadePx = metresToScreenPx(MIST_FADE_METRES) * dpr;
+  const bClearPx = metresToScreenPx(MIST_BORDER_CLEAR_METRES) * dpr;
+  const bFadePx = metresToScreenPx(MIST_BORDER_FADE_METRES) * dpr;
+
+  const revealStops = buildEaseStops(2.2, 1.0, MIST_GRADIENT_STOPS);
+  const borderStops = buildEaseStops(2.5, MIST_BORDER_PEAK_ALPHA, MIST_GRADIENT_STOPS);
+
+  ctx.globalCompositeOperation = 'destination-out';
+
+  for (const key of hexes) {
+    const { q, r: hr } = parseHexKey(key);
+    const sc = hexCenterOnScreen(q, hr);
+    const cx = sc.x * dpr;
+    const cy = sc.y * dpr;
+    if (cx < -fadePx || cy < -fadePx || cx > w + fadePx || cy > h + fadePx) continue;
+    ctx.fillStyle = makeRadialGradient(ctx, cx, cy, clearPx, fadePx, revealStops);
+    ctx.beginPath();
+    ctx.arc(cx, cy, fadePx, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const borders = getBorderHexagons();
+  for (const key of borders) {
+    const { q, r: hr } = parseHexKey(key);
+    const sc = hexCenterOnScreen(q, hr);
+    const cx = sc.x * dpr;
+    const cy = sc.y * dpr;
+    if (cx < -bFadePx || cy < -bFadePx || cx > w + bFadePx || cy > h + bFadePx) continue;
+    ctx.fillStyle = makeRadialGradient(ctx, cx, cy, bClearPx, bFadePx, borderStops);
+    ctx.beginPath();
+    ctx.arc(cx, cy, bFadePx, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+}
+
 function drawFog() {
   ensureFogLayers();
-  const fogOpacity = selectMode ? 0.5 : 0.98;
-  const borderOpacity = 0.5;
-  const hexes = activeHexagons();
-  const borders = getBorderHexagons();
-  const revealedPaths = [];
-  for (const key of hexes) {
-    const { q, r } = parseHexKey(key);
-    revealedPaths.push(hexSvgPath(q, r));
+
+  if (mistOn && !selectMode) {
+    fogLayer.setAttribute('d', 'M 0 0 Z');
+    borderLayer.setAttribute('d', 'M 0 0 Z');
+
+    mistCanvas.style.display = '';
+    syncMistCanvasCssPosition();
+    syncMistCanvasSize();
+    drawMistCanvas();
+  } else {
+    mistCanvas.style.display = 'none';
+
+    const fogOpacity = selectMode ? 0.5 : 0.98;
+    const borderOpacity = 0.5;
+    const hexes = activeHexagons();
+    const borders = getBorderHexagons();
+
+    const revealedPaths = [];
+    for (const key of hexes) {
+      const { q, r } = parseHexKey(key);
+      revealedPaths.push(hexSvgPath(q, r));
+    }
+    const borderPaths = [];
+    for (const key of borders) {
+      const { q, r } = parseHexKey(key);
+      borderPaths.push(hexSvgPath(q, r));
+    }
+
+    fogLayer.setAttribute('fill-opacity', String(fogOpacity));
+    fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
+    borderLayer.setAttribute('fill-opacity', String(borderOpacity));
+    borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
   }
-  const borderPaths = [];
-  for (const key of borders) {
-    const { q, r } = parseHexKey(key);
-    borderPaths.push(hexSvgPath(q, r));
-  }
-  fogLayer.setAttribute('fill-opacity', String(fogOpacity));
-  fogLayer.setAttribute('d', WORLD_RECT + revealedPaths.join(' ') + ' ' + borderPaths.join(' '));
-  borderLayer.setAttribute('fill-opacity', String(borderOpacity));
-  borderLayer.setAttribute('d', borderPaths.join(' ') || 'M 0 0 Z');
 }
 
 map.on('move zoom viewreset', drawFog);
@@ -1265,6 +1407,10 @@ document.getElementById('confirm-ok').addEventListener('click', () => {
   try { localStorage.setItem(DISCOVERY_STEP_KEY, '100'); } catch (e) {}
   discoveryBtn.textContent = 'Minimum discovery: 100';
 
+  mistOn = false;
+  try { localStorage.setItem(MIST_KEY, 'false'); } catch (e) {}
+  mistBtn.textContent = 'Mist: Off';
+
   currentThemeName = 'default';
   try { localStorage.setItem(THEME_KEY, 'default'); } catch (e) {}
   applyTheme('default');
@@ -1287,6 +1433,16 @@ soundBtn.addEventListener('click', () => {
   else { playStopSound(); soundOn = false; }
   try { localStorage.setItem(SOUND_KEY, String(soundOn)); } catch (e) {}
   soundBtn.textContent = `Sound: ${soundOn ? 'On' : 'Off'}`;
+});
+
+const mistBtn = document.getElementById('menu-mist');
+mistBtn.textContent = `Mist: ${mistOn ? 'On' : 'Off'}`;
+mistBtn.addEventListener('click', () => {
+  mistOn = !mistOn;
+  try { localStorage.setItem(MIST_KEY, String(mistOn)); } catch (e) {}
+  mistBtn.textContent = `Mist: ${mistOn ? 'On' : 'Off'}`;
+  if (mistOn) playStartSound(); else playStopSound();
+  redrawFog();
 });
 
 const discoveryBtn = document.getElementById('menu-discovery');
