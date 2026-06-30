@@ -576,7 +576,7 @@ function applyTheme(name) {
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
-  if (mistOn && !selectMode) drawMistCanvas();
+  if (mistOn && !selectMode) redrawFog();
 }
 
 function rebuildUserLocationIcon(color) {
