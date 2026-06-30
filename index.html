@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Hexplore">
 <link rel="apple-touch-icon" href="...">
 <link rel="icon" type="image/png" href="...">
@@ -225,6 +227,10 @@
 </head>
 <body>
 
+<div id="probe-t" style="position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);visibility:hidden;"></div>
+<div id="probe-b" style="position:fixed;bottom:0;left:0;width:1px;height:env(safe-area-inset-bottom,0px);visibility:hidden;"></div>
+<div id="probe-l" style="position:fixed;top:0;left:0;width:env(safe-area-inset-left,0px);height:1px;visibility:hidden;"></div>
+<div id="probe-r" style="position:fixed;top:0;right:0;width:env(safe-area-inset-right,0px);height:1px;visibility:hidden;"></div>
 
 <div id="map"></div>
 <svg id="fog-svg" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -380,7 +386,17 @@ function syncBarHeight() {
   document.documentElement.style.setProperty('--bar-height', height + 'px');
 }
 
-function syncSafeArea() {}
+function syncSafeArea() {
+  const root = document.documentElement;
+  const top = document.getElementById('probe-t').getBoundingClientRect().height;
+  const bottom = document.getElementById('probe-b').getBoundingClientRect().height;
+  const left = document.getElementById('probe-l').getBoundingClientRect().width;
+  const right = document.getElementById('probe-r').getBoundingClientRect().width;
+  root.style.setProperty('--safe-t', top + 'px');
+  root.style.setProperty('--safe-b', bottom + 'px');
+  root.style.setProperty('--safe-l', left + 'px');
+  root.style.setProperty('--safe-r', right + 'px');
+}
 
 function syncFogSvgSize() {
   const svg = document.getElementById('fog-svg');
