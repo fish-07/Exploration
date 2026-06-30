@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Hexplore">
 <link rel="apple-touch-icon" href="...">
 <link rel="icon" type="image/png" href="...">
-<meta name="theme-color" content="#101010">
+<meta name="theme-color" id="theme-color-meta" content="#101010">
 <title>Hexplore</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -573,9 +573,11 @@ function applyTheme(name) {
   for (const [prop, val] of Object.entries(theme)) {
     if (prop.startsWith('--')) root.style.setProperty(prop, val);
   }
+  document.getElementById('theme-color-meta').setAttribute('content', theme['--bg']);
   if (fogLayer) fogLayer.setAttribute('fill', theme['--bg']);
   if (borderLayer) borderLayer.setAttribute('fill', theme['--bg']);
   rebuildUserLocationIcon(theme.locationColor);
+  if (mistOn) drawMistCanvas();
 }
 
 function rebuildUserLocationIcon(color) {
