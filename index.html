@@ -55,7 +55,7 @@
   }
 
   #bar {
-    position: fixed; left: 0; right: 0; bottom: var(--vv-bottom-offset, 0px);
+    position: fixed; left: 0; right: 0; bottom: 0;
     background: var(--surface);
     border-top: 1px solid var(--muted);
     display: flex; flex-direction: column; align-items: center;
@@ -86,7 +86,7 @@
   #btn-follow {
     display: none;
     position: fixed;
-    top: calc(var(--safe-t) + 15px);
+    top: calc(var(--safe-t) + 25px);
     left: calc(var(--safe-l) + 15px);
     width: 110px; height: 40px;
     border: none; outline: none; border-radius: 15px;
@@ -104,7 +104,7 @@
   #btn-cancel-select {
     display: none;
     position: fixed;
-    top: calc(var(--safe-t) + 15px);
+    top: calc(var(--safe-t) + 25px);
     right: calc(var(--safe-r) + 15px);
     width: 110px; height: 40px;
     border: none; outline: none; border-radius: 15px;
@@ -377,12 +377,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
 }).addTo(map);
 
-function syncViewportOffset() {
-  if (!window.visualViewport) return;
-  const offset = window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop;
-  document.documentElement.style.setProperty('--vv-bottom-offset', Math.max(0, offset) + 'px');
-}
-
 function syncBarHeight() {
   const height = document.getElementById('bar').getBoundingClientRect().height;
   document.documentElement.style.setProperty('--bar-height', height + 'px');
@@ -414,7 +408,6 @@ function syncMistCanvasSize() {
 
 function syncLayout(includeFog) {
   syncSafeArea();
-  syncViewportOffset();
   syncBarHeight();
   syncFogSvgSize();
   if (mistOn) {
