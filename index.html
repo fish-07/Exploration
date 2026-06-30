@@ -86,7 +86,7 @@
   #btn-follow {
     display: none;
     position: fixed;
-    top: calc(var(--safe-t) + 25px);
+    top: calc(var(--safe-t) + 15px);
     left: calc(var(--safe-l) + 15px);
     width: 110px; height: 40px;
     border: none; outline: none; border-radius: 15px;
@@ -104,7 +104,7 @@
   #btn-cancel-select {
     display: none;
     position: fixed;
-    top: calc(var(--safe-t) + 25px);
+    top: calc(var(--safe-t) + 15px);
     right: calc(var(--safe-r) + 15px);
     width: 110px; height: 40px;
     border: none; outline: none; border-radius: 15px;
@@ -217,9 +217,9 @@
   #status-bar-overlay {
     position: fixed;
     top: 0; left: 0; right: 0;
-    height: calc(var(--safe-t) + 10px);
+    height: var(--safe-t);
     background: var(--bg);
-    opacity: 0.8;
+    opacity: 0.5;
     pointer-events: none;
     z-index: 460;
   }
@@ -1042,11 +1042,13 @@ function drawFog() {
     fogLayer.setAttribute('d', 'M 0 0 Z');
     borderLayer.setAttribute('d', 'M 0 0 Z');
 
+    mistCanvas.style.background = THEMES[currentThemeName]['--bg'];
     mistCanvas.style.display = '';
     syncMistCanvasCssPosition();
     syncMistCanvasSize();
     drawMistCanvas();
   } else {
+    mistCanvas.style.background = '';
     mistCanvas.style.display = 'none';
 
     const fogOpacity = selectMode ? 0.5 : 0.98;
@@ -1472,6 +1474,11 @@ themeBtn.addEventListener('click', () => {
   try { localStorage.setItem(THEME_KEY, nextName); } catch (e) {}
   themeBtn.textContent = `Theme: ${THEMES[nextName].name}`;
   playStartSound();
+  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
+  setTimeout(() => {
+    document.getElementById('menu-overlay').classList.add('open');
+    document.getElementById('menu-overlay').classList.add('settings-open');
+  }, 350);
 });
 
 loadCities();
@@ -1484,10 +1491,6 @@ syncLayout(true);
 setTimeout(() => syncLayout(true), 50);
 setTimeout(() => syncLayout(true), 300);
 window.addEventListener('resize', () => syncLayout(true));
-if (window.visualViewport) {
-  window.visualViewport.addEventListener('resize', () => syncLayout(true));
-  window.visualViewport.addEventListener('scroll', () => syncLayout(true));
-}
 window.addEventListener('orientationchange', () => {
   syncLayout(true);
   setTimeout(() => syncLayout(true), 50);
