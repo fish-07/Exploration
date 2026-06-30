@@ -820,9 +820,8 @@ function addHexToPlaces(hexKey) {
   const wasUnlocked = entry.hexagons.size >= placesThreshold;
   entry.hexagons.add(hexKey);
   const nowUnlocked = entry.hexagons.size >= placesThreshold;
-  if (nowUnlocked) renderPlacesList();
+  if (wasUnlocked || nowUnlocked) renderPlacesList();
   if (nowUnlocked && !wasUnlocked) { playDiscoverySound(); sendPlaceDiscoveredNotification(entry.name); }
-  else if (wasUnlocked) renderPlacesList();
 }
 
 function updateExportButton() {
@@ -1271,12 +1270,6 @@ document.getElementById('btn-cancel-select').addEventListener('click', () => {
   exitSelectMode(true);
 });
 
-function closeAllMenus() {
-  playCloseSound();
-  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
-  applyTheme(currentThemeName);
-}
-
 function closeMenu() {
   playCloseSound();
   document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
@@ -1305,7 +1298,7 @@ function closePlaces() {
   document.getElementById('menu-overlay').classList.remove('places-open');
 }
 
-document.getElementById('menu-backdrop').addEventListener('click', closeAllMenus);
+document.getElementById('menu-backdrop').addEventListener('click', closeMenu);
 document.getElementById('menu-back').addEventListener('click', closeMenu);
 document.getElementById('menu-settings-open').addEventListener('click', openSettings);
 document.getElementById('settings-back').addEventListener('click', closeSettings);
@@ -1475,11 +1468,6 @@ themeBtn.addEventListener('click', () => {
   try { localStorage.setItem(THEME_KEY, nextName); } catch (e) {}
   themeBtn.textContent = `Theme: ${THEMES[nextName].name}`;
   playStartSound();
-  document.getElementById('menu-overlay').classList.remove('open', 'settings-open', 'places-open');
-  setTimeout(() => {
-    document.getElementById('menu-overlay').classList.add('open');
-    document.getElementById('menu-overlay').classList.add('settings-open');
-  }, 350);
 });
 
 loadCities();
